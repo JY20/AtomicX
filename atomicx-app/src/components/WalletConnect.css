@@ -34,30 +34,34 @@
 
 .wallet-dropdown {
   display: flex;
+  flex-direction: column;
   position: absolute;
-  left: 130px; /* Position beside the button */
-  top: 0;
+  left: 0;
+  top: 100%;
+  margin-top: 5px;
   background-color: #111;
-  border-radius: 50px;
+  border-radius: 10px;
   box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
   overflow: hidden;
   opacity: 0;
-  transform: translateX(-20px);
+  transform: translateY(-10px);
   visibility: hidden;
   transition: all 0.3s ease;
   z-index: 1;
+  width: 100%;
+  min-width: 150px;
 }
 
 .wallet-dropdown.show {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateY(0);
   visibility: visible;
 }
 
 .wallet-option {
   display: flex;
   align-items: center;
-  padding: 8px 15px;
+  padding: 12px 15px;
   border: none;
   background-color: transparent;
   cursor: pointer;
@@ -137,16 +141,6 @@
 }
 
 @media (max-width: 768px) {
-  .wallet-dropdown {
-    position: absolute;
-    left: 0;
-    top: 100%;
-    margin-top: 5px;
-    flex-direction: column;
-    width: 100%;
-    border-radius: 10px;
-  }
-  
   .wallet-info {
     padding: 5px 10px;
   }

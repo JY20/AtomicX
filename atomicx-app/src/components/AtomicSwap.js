@@ -3,7 +3,7 @@ import './AtomicSwap.css';
 
 const AtomicSwap = () => {
   return (
-    <section className="atomic-swap" id="how-it-works">
+    <section className="atomic-swap">
       <div className="section-container">
         <h2>Atomic Swap</h2>
         <h3>How It Works</h3>

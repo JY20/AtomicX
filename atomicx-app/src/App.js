@@ -8,7 +8,7 @@ function App() {
   return (
     <div className="App">
       <Navbar />
-      <header className="App-header" id="home">
+      <header className="App-header">
         <h1>AtomicX</h1>
         <p>
           A powerful platform for atomic swaps and cross-chain transactions
@@ -19,7 +19,7 @@ function App() {
         </div>
       </header>
       <main>
-        <section className="features" id="features">
+        <section className="features">
           <h2>Key Features</h2>
           <div className="feature-grid">
             <div className="feature-card">
