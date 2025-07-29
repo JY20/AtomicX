@@ -1,0 +1,47 @@
+{
+  "name": "atomicx-backend",
+  "version": "0.1.0",
+  "description": "Backend service for atomic swaps between EVM chains and Bitcoin",
+  "main": "dist/index.js",
+  "scripts": {
+    "init": "node init.js",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "maker:create": "node dist/orders/createOrder.js",
+    "taker:fill": "node dist/orders/fillOrder.js",
+    "maker:escrow": "node dist/evm/createEscrow.js",
+    "taker:fund": "node dist/btc/fundHTLC.js",
+    "maker:claim": "node dist/btc/claimBTC.js",
+    "taker:claim": "node dist/evm/claimEVM.js",
+    "reverse:create": "node dist/reverse/createReverseOrder.js",
+    "reverse:maker:htlc": "node dist/reverse/createBTCHTLC.js",
+    "reverse:maker:fund": "node dist/reverse/fundBTCHTLC.js",
+    "reverse:taker:escrow": "node dist/reverse/createEVMEscrow.js",
+    "reverse:maker:claim": "node dist/reverse/claimEVM.js",
+    "reverse:taker:claim": "node dist/reverse/claimBTC.js",
+    "debug:timelock": "node dist/evm/checkTimelock.js"
+  },
+  "keywords": [
+    "atomic-swap",
+    "bitcoin",
+    "ethereum",
+    "blockchain",
+    "htlc"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^16.11.12",
+    "bitcoinjs-lib": "^6.1.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.0.0",
+    "ecpair": "^2.1.0",
+    "ethers": "^5.7.2",
+    "hardhat": "^2.12.7",
+    "tiny-secp256k1": "^2.2.1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.1",
+    "typescript": "^4.9.5"
+  }
+} 
