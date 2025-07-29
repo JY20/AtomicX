@@ -81,7 +81,7 @@ contract StarknetEscrowSrc {
     uint256 public createdAt;
     
     // Constructor
-    constructor(BTCEscrowFactory.Immutables memory immutables) payable {
+    constructor(StarknetEscrowFactory.Immutables memory immutables) payable {
         orderHash = immutables.orderHash;
         hashlock = immutables.hashlock;
         maker = address(uint160(immutables.maker));
@@ -145,10 +145,10 @@ contract StarknetEscrowSrc {
 }
 
 /**
- * @title BTCEscrowDst
- * @dev Destination escrow contract for BTC→EVM atomic swaps
+ * @title StarknetEscrowDst
+ * @dev Destination escrow contract for Starknet→EVM atomic swaps
  */
-contract BTCEscrowDst {
+contract StarknetEscrowDst {
     // Immutable parameters
     bytes32 public immutable orderHash;
     bytes32 public immutable hashlock;
@@ -163,7 +163,7 @@ contract BTCEscrowDst {
     uint256 public createdAt;
     
     // Constructor
-    constructor(BTCEscrowFactory.Immutables memory immutables) payable {
+    constructor(StarknetEscrowFactory.Immutables memory immutables) payable {
         orderHash = immutables.orderHash;
         hashlock = immutables.hashlock;
         maker = address(uint160(immutables.maker));

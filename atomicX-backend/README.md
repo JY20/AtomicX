@@ -1,19 +1,19 @@
-# 🌉 AtomicX Backend - EVM ↔ Bitcoin Atomic Swap System
+# 🌉 AtomicX Backend - EVM ↔ StarkNet Atomic Swap System
 
-A complete, production-ready atomic swap implementation enabling trustless exchanges between EVM chains (Ethereum, Polygon, BSC, etc.) and Bitcoin. Built with secure HTLC contracts for both chains.
+A complete, production-ready atomic swap implementation enabling trustless exchanges between EVM chains (Ethereum, Polygon, BSC, etc.) and StarkNet. Built with secure HTLC contracts for both chains.
 
 ## 🏗️ Architecture Overview
 
 This system implements **Hash Time Locked Contracts (HTLCs)** on both chains to enable atomic swaps:
 
 * **EVM Side**: Smart contracts for escrow functionality
-* **Bitcoin Side**: Native Bitcoin Script HTLCs with SegWit support
+* **StarkNet Side**: Cairo smart contracts with HTLC functionality
 * **Atomic Guarantee**: Either both parties get their desired assets, or both get refunded
 
 ### 🔄 Supported Swap Directions
 
-1. **EVM → BTC**: Trade ETH/ERC20 tokens for Bitcoin
-2. **BTC → EVM**: Trade Bitcoin for ETH/ERC20 tokens
+1. **EVM → StarkNet**: Trade ETH/ERC20 tokens for StarkNet assets
+2. **StarkNet → EVM**: Trade StarkNet assets for ETH/ERC20 tokens
 
 ## 🚀 Quick Start
 
@@ -37,55 +37,55 @@ PRIVATE_KEY=your_ethereum_private_key
 SEPOLIA_RPC_URL=https://sepolia.drpc.org
 ETHERSCAN_API_KEY=your_etherscan_key
 
-# Bitcoin Configuration (Testnet4)
-BITCOIN_PRIVATE_KEY=your_bitcoin_private_key_64_chars
-BITCOIN_ADDRESS=your_bitcoin_testnet_address
-BITCOIN_NETWORK=testnet4
+# StarkNet Configuration
+STARKNET_PRIVATE_KEY=your_starknet_private_key
+STARKNET_ADDRESS=your_starknet_address
+STARKNET_NETWORK=goerli-alpha
 ```
 
 ### Get Testnet Funds
 
 * **Sepolia ETH**: [Sepolia Faucet](https://sepoliafaucet.com/)
-* **Bitcoin Testnet**: [BTC Testnet Faucet](https://coinfaucet.eu/en/btc-testnet/)
+* **StarkNet Goerli**: [StarkNet Faucet](https://faucet.goerli.starknet.io/)
 
 ## 💱 Swap Flows
 
-### 🔵 EVM → BTC Flow
+### 🔵 EVM → StarkNet Flow
 
-**Participants**: MAKER (provides ETH), TAKER (provides BTC)
+**Participants**: MAKER (provides ETH), TAKER (provides StarkNet assets)
 
 ```bash
 # 1. MAKER creates order
 npm run maker:create
 
-# 2. TAKER fills order (creates Bitcoin HTLC)
+# 2. TAKER fills order (creates StarkNet HTLC)
 ORDER_ID=order_123 npm run taker:fill
 
 # 3. MAKER creates EVM escrow
 ORDER_ID=order_123 npm run maker:escrow
 
-# 4. TAKER funds Bitcoin HTLC
+# 4. TAKER funds StarkNet HTLC
 ORDER_ID=order_123 npm run taker:fund
 
-# 5. MAKER claims BTC (reveals secret)
+# 5. MAKER claims StarkNet assets (reveals secret)
 ORDER_ID=order_123 npm run maker:claim
 
 # 6. TAKER claims ETH (using revealed secret)
 ORDER_ID=order_123 npm run taker:claim
 ```
 
-### 🔴 BTC → EVM Flow (Reverse)
+### 🔴 StarkNet → EVM Flow (Reverse)
 
-**Participants**: MAKER (provides BTC), TAKER (provides ETH)
+**Participants**: MAKER (provides StarkNet assets), TAKER (provides ETH)
 
 ```bash
 # 1. MAKER creates reverse order
 npm run reverse:create
 
-# 2. MAKER creates Bitcoin HTLC
+# 2. MAKER creates StarkNet HTLC
 ORDER_ID=reverse_order_123 npm run reverse:maker:htlc
 
-# 3. MAKER funds Bitcoin HTLC
+# 3. MAKER funds StarkNet HTLC
 ORDER_ID=reverse_order_123 npm run reverse:maker:fund
 
 # 4. TAKER creates EVM escrow
@@ -94,7 +94,7 @@ ORDER_ID=reverse_order_123 npm run reverse:taker:escrow
 # 5. MAKER claims ETH (reveals secret)
 ORDER_ID=reverse_order_123 npm run reverse:maker:claim
 
-# 6. TAKER claims BTC (using revealed secret)
+# 6. TAKER claims StarkNet assets (using revealed secret)
 ORDER_ID=reverse_order_123 npm run reverse:taker:claim
 ```
 
@@ -110,7 +110,7 @@ const secretHex = "0x" + secret.toString("hex");
 // 2. Create SHA-256 hashlock
 const hashlock = ethers.sha256(secretHex);
 
-// 3. Use in both EVM contracts and Bitcoin HTLCs
+// 3. Use in both EVM contracts and StarkNet HTLCs
 ```
 
 ### Atomic Swap Guarantee

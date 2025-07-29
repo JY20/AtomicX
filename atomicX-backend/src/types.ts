@@ -23,9 +23,9 @@ export interface Order {
       cancellationPeriod: number;
     };
   };
-  bitcoinHTLC?: {
-    address: string;
-    redeemScript: string;
+  starknetHTLC?: {
+    contractAddress: string;
+    htlcId: string;
     timelock: number;
   };
 }
@@ -34,8 +34,8 @@ export enum OrderStatus {
   CREATED = "CREATED",
   FILLED = "FILLED",
   EVM_ESCROW_CREATED = "EVM_ESCROW_CREATED",
-  BTC_HTLC_FUNDED = "BTC_HTLC_FUNDED",
-  BTC_CLAIMED = "BTC_CLAIMED",
+  STARKNET_HTLC_FUNDED = "STARKNET_HTLC_FUNDED",
+  STARKNET_CLAIMED = "STARKNET_CLAIMED",
   EVM_CLAIMED = "EVM_CLAIMED",
   COMPLETED = "COMPLETED",
   CANCELLED = "CANCELLED"
@@ -52,12 +52,18 @@ export interface Immutables {
   timelocks: string;
 }
 
-export interface BitcoinHTLC {
-  address: string;
-  redeemScript: string;
-  p2sh: string;
-  p2wsh: string;
+export interface StarknetHTLC {
+  contractAddress: string;
+  htlcId: string;
+  sender: string;
+  recipient: string;
+  token: string;
+  amount: string;
+  hashlock: string;
   timelock: number;
+  withdrawn: boolean;
+  refunded: boolean;
+  createdAt: number;
 }
 
 export interface EVMEscrow {
@@ -74,4 +80,17 @@ export interface Network {
   rpcUrl: string;
   factoryAddress: string;
   explorerUrl: string;
+}
+
+export interface StarknetNetwork {
+  name: string;
+  chainId: string;
+  nodeUrl: string;
+  explorerUrl: string;
+}
+
+export interface StarknetAccount {
+  address: string;
+  privateKey: string;
+  publicKey: string;
 } 

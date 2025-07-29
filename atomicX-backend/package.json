@@ -1,7 +1,7 @@
 {
   "name": "atomicx-backend",
   "version": "0.1.0",
-  "description": "Backend service for atomic swaps between EVM chains and Bitcoin",
+  "description": "Backend service for atomic swaps between EVM chains and StarkNet",
   "main": "dist/index.js",
   "scripts": {
     "init": "node init.js",
@@ -10,15 +10,15 @@
     "maker:create": "node dist/orders/createOrder.js",
     "taker:fill": "node dist/orders/fillOrder.js",
     "maker:escrow": "node dist/evm/createEscrow.js",
-    "taker:fund": "node dist/btc/fundHTLC.js",
-    "maker:claim": "node dist/btc/claimBTC.js",
+    "taker:fund": "node dist/starknet/fundHTLC.js",
+    "maker:claim": "node dist/starknet/claimStarknet.js",
     "taker:claim": "node dist/evm/claimEVM.js",
     "reverse:create": "node dist/reverse/createReverseOrder.js",
-    "reverse:maker:htlc": "node dist/reverse/createBTCHTLC.js",
-    "reverse:maker:fund": "node dist/reverse/fundBTCHTLC.js",
+    "reverse:maker:htlc": "node dist/reverse/createStarknetHTLC.js",
+    "reverse:maker:fund": "node dist/reverse/fundStarknetHTLC.js",
     "reverse:taker:escrow": "node dist/reverse/createEVMEscrow.js",
     "reverse:maker:claim": "node dist/reverse/claimEVM.js",
-    "reverse:taker:claim": "node dist/reverse/claimBTC.js",
+    "reverse:taker:claim": "node dist/reverse/claimStarknet.js",
     "debug:timelock": "node dist/evm/checkTimelock.js"
   },
   "keywords": [
@@ -32,13 +32,13 @@
   "license": "MIT",
   "dependencies": {
     "@types/node": "^16.11.12",
-    "bitcoinjs-lib": "^6.1.0",
     "crypto": "^1.0.1",
     "dotenv": "^16.0.0",
-    "ecpair": "^2.1.0",
     "ethers": "^5.7.2",
     "hardhat": "^2.12.7",
-    "tiny-secp256k1": "^2.2.1"
+    "starknet": "^5.19.5",
+    "get-starknet": "^3.0.1",
+    "starknet-hardhat-plugin": "^0.0.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",

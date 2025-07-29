@@ -6,7 +6,7 @@ const { execSync } = require('child_process');
 const dirs = [
   'orders',
   'dist',
-  'dist/btc',
+  'dist/starknet',
   'dist/evm',
   'dist/orders',
   'dist/reverse'
@@ -28,10 +28,10 @@ PRIVATE_KEY=your_ethereum_private_key
 SEPOLIA_RPC_URL=https://sepolia.drpc.org
 ETHERSCAN_API_KEY=your_etherscan_key
 
-# Bitcoin Configuration (Testnet4)
-BITCOIN_PRIVATE_KEY=your_bitcoin_private_key_64_chars
-BITCOIN_ADDRESS=your_bitcoin_testnet_address
-BITCOIN_NETWORK=testnet4`;
+# StarkNet Configuration
+STARKNET_PRIVATE_KEY=your_starknet_private_key
+STARKNET_ADDRESS=your_starknet_address
+STARKNET_NETWORK=goerli-alpha`;
 
   fs.writeFileSync(envPath, envContent);
   console.log('Created .env file');

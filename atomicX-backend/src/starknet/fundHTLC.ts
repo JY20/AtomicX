@@ -1,5 +1,7 @@
 import { loadOrder, updateOrderStatus } from '../utils';
 import { OrderStatus } from '../types';
+import { getStarknetAccount } from './htlc';
+import * as starknet from 'starknet';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -25,35 +27,39 @@ async function fundHTLC() {
       process.exit(1);
     }
     
-    // Check if Bitcoin HTLC is set
-    if (!order.bitcoinHTLC) {
-      console.error('❌ Bitcoin HTLC not set in order');
-      console.error('The Bitcoin HTLC must be created first');
+    // Check if Starknet HTLC is set
+    if (!order.starknetHTLC) {
+      console.error('❌ Starknet HTLC not set in order');
+      console.error('The Starknet HTLC must be created first');
       process.exit(1);
     }
     
-    console.log('\n📝 Funding Bitcoin HTLC...');
-    console.log(`🔒 HTLC Address: ${order.bitcoinHTLC.address}`);
-    console.log(`💰 Amount: ${order.taker.amount} BTC`);
+    console.log('\n📝 Funding Starknet HTLC...');
+    console.log(`🔒 HTLC ID: ${order.starknetHTLC.htlcId}`);
+    console.log(`💰 Amount: ${order.taker.amount} tokens`);
     
-    // Note: In a real implementation, you would create and broadcast a Bitcoin transaction
-    // to fund the HTLC. For this example, we'll just simulate it and assume the user has
-    // sent the funds manually.
+    // Get StarkNet account
+    const account = await getStarknetAccount();
     
-    console.log('\n⚠️ Please send exactly the specified amount to the HTLC address.');
-    console.log('You can use any Bitcoin wallet to send the funds.');
+    // Note: In a real implementation, we would transfer tokens to the HTLC contract
+    // For this example, we'll simulate the funding by waiting for user confirmation
+    
+    console.log('\n⚠️ Please ensure you have approved the token transfer to the HTLC contract.');
+    console.log(`Token contract: ${order.taker.asset}`);
+    console.log(`HTLC contract: ${order.starknetHTLC.contractAddress}`);
+    console.log(`Amount: ${order.taker.amount}`);
     
     // Wait for user confirmation
-    console.log('\nPress Enter after you have sent the funds...');
+    console.log('\nPress Enter after you have funded the HTLC...');
     await new Promise(resolve => process.stdin.once('data', resolve));
     
     // Update order status
-    const updatedOrder = updateOrderStatus(orderId, OrderStatus.BTC_HTLC_FUNDED);
+    const updatedOrder = updateOrderStatus(orderId, OrderStatus.STARKNET_HTLC_FUNDED);
     
-    console.log('\n✅ Bitcoin HTLC funding confirmed!');
+    console.log('\n✅ Starknet HTLC funding confirmed!');
     
     console.log('\n📋 Next steps:');
-    console.log('1. Maker will claim BTC using their secret');
+    console.log('1. Maker will claim Starknet assets using their secret');
     console.log('2. You will claim ETH/tokens using the revealed secret');
     
   } catch (error) {
