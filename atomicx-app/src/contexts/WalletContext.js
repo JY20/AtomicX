@@ -58,10 +58,45 @@ export const WalletProvider = ({ children }) => {
         const network = await provider.getNetwork();
         console.log('Connected to Ethereum network:', network.name, 'Chain ID:', network.chainId);
         
-        // Check if we're on the correct network (Ethereum Mainnet)
-        if (network.chainId !== 1) {
-          alert(`Please switch to Ethereum Mainnet (Chain ID: 1). Current network: ${network.name} (Chain ID: ${network.chainId})`);
-          return;
+        // Check if we're on Sepolia testnet (chain ID 11155111)
+        if (network.chainId !== 11155111) {
+          try {
+            // Try to switch to Sepolia
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0xaa36a7' }], // 0xaa36a7 is hex for 11155111 (Sepolia)
+            });
+          } catch (switchError) {
+            // This error code indicates that the chain has not been added to MetaMask
+            if (switchError.code === 4902) {
+              try {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [
+                    {
+                      chainId: '0xaa36a7',
+                      chainName: 'Sepolia Testnet',
+                      nativeCurrency: {
+                        name: 'Sepolia ETH',
+                        symbol: 'ETH',
+                        decimals: 18
+                      },
+                      rpcUrls: ['https://sepolia.infura.io/v3/'],
+                      blockExplorerUrls: ['https://sepolia.etherscan.io']
+                    }
+                  ],
+                });
+              } catch (addError) {
+                console.error('Error adding Sepolia network:', addError);
+                alert('Please manually switch to Sepolia testnet in your wallet');
+                return;
+              }
+            } else {
+              console.error('Error switching to Sepolia network:', switchError);
+              alert('Please manually switch to Sepolia testnet in your wallet');
+              return;
+            }
+          }
         }
         
         setEthAccount(accounts[0]);
@@ -91,10 +126,20 @@ export const WalletProvider = ({ children }) => {
       const chainId = starknet.provider.chainId;
       console.log('Connected to Starknet network:', chainId);
       
-      // Check if we're on the correct network (Starknet Mainnet)
-      if (chainId !== '0x534e5f4d41494e') { // SN_MAIN in hex
-        alert(`Please switch to Starknet Mainnet. Current network: ${chainId}`);
-        return;
+      // Check if we're on Starknet Sepolia testnet
+      // SN_SEPOLIA = 0x534e5f5345504f4c4941 (hex for "SN_SEPOLIA")
+      if (chainId !== '0x534e5f5345504f4c4941') {
+        try {
+          // Try to switch to Sepolia testnet
+          await starknet.request({
+            type: 'wallet_switchStarknetChain',
+            params: { chainId: '0x534e5f5345504f4c4941' }
+          });
+        } catch (error) {
+          console.error('Error switching to Starknet Sepolia testnet:', error);
+          alert(`Please switch to Starknet Sepolia testnet in your wallet. Current network: ${chainId}`);
+          return;
+        }
       }
       
       setStarknetAccount(starknet.account);

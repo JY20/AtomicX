@@ -2,6 +2,7 @@
 
 # dependencies
 /atomicx-app/node_modules/
+/atomicx-app/server/node_modules/
 /atomicx-backend/node_modules/
 /.pnp
 .pnp.js

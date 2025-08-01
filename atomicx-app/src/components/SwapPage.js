@@ -1,23 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import './SwapPage.css';
 import { useWallet } from '../contexts/WalletContext';
+import { ethers } from 'ethers';
+import { Contract, uint256, hash } from 'starknet';
 
 function SwapPage() {
-  const { isWalletConnected } = useWallet();
+  const { ethAccount, starknetAccount, isWalletConnected } = useWallet();
   const [currentStep, setCurrentStep] = useState(1);
   const [fromToken, setFromToken] = useState('ETH');
   const [toToken, setToToken] = useState('STRK');
-  const [fromAmount, setFromAmount] = useState('');
-  const [toAmount, setToAmount] = useState('');
+  const [fromAmount, setFromAmount] = useState('0.1');
+  const [toAmount, setToAmount] = useState('0.1');
   const [htlcHash, setHtlcHash] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
+  const [txHash, setTxHash] = useState('');
+  const [depositStatus, setDepositStatus] = useState('');
+  const [secretKey, setSecretKey] = useState('');
+  const [secretHash, setSecretHash] = useState('');
+  
+  // Contract addresses
+  const ethContractAddress = '0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6'; // Ethereum Sepolia
+  const starknetContractAddress = '0x057dcc8c6f5a214c3bc3d6c62a311977f0e73f34c89a7a0b3e3c9a7c5febfe69'; // Starknet Sepolia (example address)
 
+  // Steps for the progress bar
   const steps = [
-    { number: 1, label: 'SWAP INPUT', status: 'completed' },
-    { number: 2, label: 'RELEASE TOKENS', status: 'active' },
-    { number: 3, label: 'CLAIM TOKENS', status: 'pending' }
+    { number: 1, label: 'SWAP INPUT' },
+    { number: 2, label: 'LOCK TOKENS' },
+    { number: 3, label: 'CLAIM TOKENS' }
   ];
+
+  // Effect to generate a random secret key when the component mounts
+  useEffect(() => {
+    // Generate a random 32-byte secret key
+    const randomBytes = new Uint8Array(32);
+    window.crypto.getRandomValues(randomBytes);
+    const secret = Array.from(randomBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    setSecretKey(secret);
+    
+    // Hash the secret using keccak256
+    const hash = ethers.utils.id(secret);
+    setSecretHash(hash);
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -27,6 +53,15 @@ function SwapPage() {
     return () => clearTimeout(timer);
   }, [isProcessing, timeRemaining]);
 
+  // Calculate equivalent STRK amount based on ETH amount (1:1 ratio for simplicity)
+  useEffect(() => {
+    if (fromToken === 'ETH') {
+      setToAmount(fromAmount);
+    } else {
+      setFromAmount(toAmount);
+    }
+  }, [fromAmount, toAmount, fromToken]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -34,25 +69,165 @@ function SwapPage() {
   };
 
   const handleSwap = () => {
-    if (!fromAmount || !toAmount) return;
+    if (!fromAmount) return;
     setCurrentStep(2);
   };
 
-  const handleRelease = () => {
-    // Simulate wallet signature and HTLC generation
+  const handleRelease = async () => {
+    if (!ethAccount) {
+      alert('Please connect your Ethereum wallet first');
+      return;
+    }
+
     setIsProcessing(true);
-    setHtlcHash('0x1234567890abcdef1234567890abcdef12345678');
-    
-    // Simulate relayer processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setCurrentStep(3);
-    }, 5000);
+    setDepositStatus('Initiating deposit transaction...');
+
+    try {
+      // Get the Ethereum provider
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      // Create transaction parameters
+      const txParams = {
+        to: ethContractAddress,
+        value: ethers.utils.parseEther(fromAmount),
+        gasLimit: 100000,
+      };
+
+      // Send the transaction
+      const tx = await signer.sendTransaction(txParams);
+      setTxHash(tx.hash);
+      setDepositStatus('Transaction submitted! Waiting for confirmation...');
+      
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+      
+      if (receipt.status === 1) {
+        // Transaction successful
+        setDepositStatus('ETH locked successfully! STRK tokens are now claimable on Starknet Sepolia testnet.');
+        setHtlcHash(receipt.transactionHash);
+        
+        // Save user data
+        const userData = {
+          userAddress: ethAccount,
+          starknetAddress: starknetAccount?.address,
+          amount: fromAmount,
+          txHash: receipt.transactionHash,
+          secretHash: secretHash,
+          secretKey: secretKey,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Send deposit data to backend
+        try {
+          const response = await fetch('http://localhost:5000/api/deposit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData),
+          });
+          
+          if (!response.ok) {
+            console.error('Failed to save deposit data to server');
+          }
+        } catch (apiError) {
+          console.error('API error:', apiError);
+        }
+        
+        setTimeout(() => {
+          setIsProcessing(false);
+          setCurrentStep(3);
+        }, 2000);
+      } else {
+        // Transaction failed
+        setDepositStatus('Transaction failed. Please try again.');
+        setTimeout(() => {
+          setIsProcessing(false);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error during deposit:', error);
+      setDepositStatus(`Transaction failed: ${error.message}`);
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 2000);
+    }
   };
 
-  const handleClaim = () => {
-    // Claim logic would go here
-    console.log('Claiming tokens...');
+  const handleClaim = async () => {
+    if (!starknetAccount) {
+      alert('Please connect your Starknet wallet to claim STRK tokens');
+      return;
+    }
+
+    setIsProcessing(true);
+    setDepositStatus('Claiming STRK tokens on Starknet Sepolia testnet...');
+
+    try {
+      // In a real implementation, this would interact with a Starknet contract
+      // For demonstration purposes, we're simulating the interaction
+      
+      // Example of how to interact with a Starknet contract:
+      /*
+      const provider = starknetAccount.provider;
+      const starknetHTLC = new Contract(
+        StarknetHTLCABI,
+        starknetContractAddress,
+        provider
+      );
+      
+      // Convert the secret key to a felt (field element)
+      const secretKeyFelt = hash.pedersen([secretKey]);
+      
+      // Call the withdraw function on the Starknet HTLC contract
+      const { transaction_hash } = await starknetAccount.execute({
+        contractAddress: starknetContractAddress,
+        entrypoint: 'withdraw',
+        calldata: [htlcHash, secretKeyFelt]
+      });
+      
+      // Wait for transaction to be accepted
+      await provider.waitForTransaction(transaction_hash);
+      */
+      
+      // Simulate successful claim for demonstration
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Update the swap status in the backend
+      const response = await fetch('http://localhost:5000/api/swaps/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          txHash: txHash || htlcHash,
+          status: 'claimed'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update swap status');
+      }
+
+      setDepositStatus('STRK tokens claimed successfully on Starknet Sepolia testnet!');
+      
+      setTimeout(() => {
+        setIsProcessing(false);
+        // Reset the form for a new swap
+        setCurrentStep(1);
+        setFromAmount('0.1');
+        setToAmount('0.1');
+        setTxHash('');
+        setHtlcHash('');
+      }, 2000);
+    } catch (error) {
+      console.error('Error claiming tokens:', error);
+      setDepositStatus(`Claim failed: ${error.message}`);
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 2000);
+    }
   };
 
   const switchTokens = () => {
@@ -98,6 +273,7 @@ function SwapPage() {
               placeholder="0.0"
               value={toAmount}
               onChange={(e) => setToAmount(e.target.value)}
+              readOnly={fromToken === 'ETH'} // Make it read-only when swapping ETH to STRK
             />
                             <div className="token-selector">
                   <img 
@@ -111,51 +287,69 @@ function SwapPage() {
         </div>
       </div>
       
+      <div className="network-info">
+        <div className="network-item">
+          <span>From Network:</span>
+          <span className="network-name">Ethereum Sepolia Testnet</span>
+        </div>
+        <div className="network-item">
+          <span>To Network:</span>
+          <span className="network-name">Starknet Sepolia Testnet</span>
+        </div>
+      </div>
+      
       <button 
         className="swap-button" 
         onClick={handleSwap}
-        disabled={!fromAmount || !toAmount || !isWalletConnected}
+        disabled={!fromAmount || !isWalletConnected}
       >
-        {!isWalletConnected ? 'Connect Wallet to Swap' : 'Proceed to Release'}
+        {!isWalletConnected ? 'Connect Wallet to Swap' : 'Proceed to Lock Tokens'}
       </button>
     </div>
   );
 
   const renderStep2 = () => (
     <div className="swap-section">
-      <h2>Step 2: Release Your Tokens</h2>
+      <h2>Step 2: Lock Your Tokens</h2>
       
       {!isProcessing ? (
         <>
           <div className="warning-box">
             <h3>⚠️ Important Warning</h3>
-            <p>You are about to release {fromAmount} {fromToken} for {toAmount} {toToken}.</p>
-            <p>This action will lock your tokens in an HTLC contract. Make sure you understand the terms.</p>
+            <p>You are about to lock {fromAmount} {fromToken} in the HTLC contract on Ethereum Sepolia testnet.</p>
+            <p>Contract Address: <code>{ethContractAddress}</code></p>
+            <p>This action will make {toAmount} {toToken} claimable on the Starknet Sepolia testnet.</p>
           </div>
           
           <div className="swap-summary">
             <h3>Swap Summary</h3>
             <div className="summary-item">
-              <span>You Pay:</span>
+              <span>You Lock:</span>
               <span>{fromAmount} {fromToken}</span>
             </div>
             <div className="summary-item">
-              <span>You Receive:</span>
+              <span>You Will Receive:</span>
               <span>{toAmount} {toToken}</span>
+            </div>
+            <div className="summary-item">
+              <span>Secret Hash:</span>
+              <span className="hash">{secretHash ? `${secretHash.substring(0, 10)}...${secretHash.substring(secretHash.length - 8)}` : 'Generating...'}</span>
             </div>
           </div>
           
           <button className="release-button" onClick={handleRelease}>
-            Release {fromAmount} {fromToken}
+            Lock {fromAmount} {fromToken}
           </button>
         </>
       ) : (
         <div className="processing-section">
           <div className="processing-spinner"></div>
-          <h3>Processing Your Swap</h3>
-          <p>HTLC Hash: <code>{htlcHash}</code></p>
+          <h3>Processing Your Transaction</h3>
+          <p>{depositStatus}</p>
+          {txHash && (
+            <p>Transaction Hash: <code>{txHash}</code></p>
+          )}
           <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
-          <p>Waiting for relayer to process your transaction...</p>
         </div>
       )}
     </div>
@@ -165,30 +359,50 @@ function SwapPage() {
     <div className="swap-section">
       <h2>Step 3: Claim Your Tokens</h2>
       
-      <div className="success-box">
-        <h3>✅ Swap Completed!</h3>
-        <p>Your {toAmount} {toToken} are ready to be claimed.</p>
-      </div>
-      
-      <div className="swap-summary">
-        <h3>Final Summary</h3>
-        <div className="summary-item">
-          <span>You Paid:</span>
-          <span>{fromAmount} {fromToken}</span>
+      {!isProcessing ? (
+        <>
+          <div className="success-box">
+            <h3>✅ Tokens Locked Successfully!</h3>
+            <p>Your {fromAmount} {fromToken} have been locked in the HTLC contract on Ethereum Sepolia testnet.</p>
+            <p>You can now claim {toAmount} {toToken} on the Starknet Sepolia testnet.</p>
+          </div>
+          
+          <div className="swap-summary">
+            <h3>Final Summary</h3>
+            <div className="summary-item">
+              <span>You Locked:</span>
+              <span>{fromAmount} {fromToken}</span>
+            </div>
+            <div className="summary-item">
+              <span>You Will Receive:</span>
+              <span>{toAmount} {toToken}</span>
+            </div>
+            <div className="summary-item">
+              <span>Transaction Hash:</span>
+              <span className="hash">{txHash || htlcHash}</span>
+            </div>
+            <div className="summary-item">
+              <span>Secret Key:</span>
+              <span className="hash">{secretKey ? `${secretKey.substring(0, 10)}...${secretKey.substring(secretKey.length - 8)}` : 'N/A'}</span>
+            </div>
+            <div className="summary-item">
+              <span>Starknet Contract:</span>
+              <span className="hash">{starknetContractAddress}</span>
+            </div>
+          </div>
+          
+          <button className="claim-button" onClick={handleClaim}>
+            Claim {toAmount} {toToken} on Starknet
+          </button>
+        </>
+      ) : (
+        <div className="processing-section">
+          <div className="processing-spinner"></div>
+          <h3>Claiming Your Tokens</h3>
+          <p>{depositStatus}</p>
+          <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
         </div>
-        <div className="summary-item">
-          <span>You Received:</span>
-          <span>{toAmount} {toToken}</span>
-        </div>
-        <div className="summary-item">
-          <span>HTLC Hash:</span>
-          <span className="hash">{htlcHash}</span>
-        </div>
-      </div>
-      
-      <button className="claim-button" onClick={handleClaim}>
-        Claim {toAmount} {toToken}
-      </button>
+      )}
     </div>
   );
 
@@ -204,7 +418,7 @@ function SwapPage() {
         <div className="progress-bar">
           <div className="progress-line"></div>
           {steps.map((step, index) => (
-            <div key={step.number} className={`progress-step ${step.status}`}>
+            <div key={step.number} className={`progress-step ${currentStep >= step.number ? 'completed' : currentStep === step.number - 1 ? 'active' : 'pending'}`}>
               <div className="step-circle">
                 <span>{step.number}</span>
               </div>

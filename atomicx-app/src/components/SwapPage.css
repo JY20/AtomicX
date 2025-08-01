@@ -412,6 +412,29 @@
   transform: translateY(-2px);
 }
 
+.network-info {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: rgba(168, 85, 247, 0.1);
+  border-radius: 10px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.network-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.network-item:last-child {
+  margin-bottom: 0;
+}
+
+.network-name {
+  font-weight: 600;
+  color: #a855f7;
+}
+
 @media (max-width: 768px) {
   .swap-page {
     padding: 1rem;
