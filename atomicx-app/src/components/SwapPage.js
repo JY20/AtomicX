@@ -2,35 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './SwapPage.css';
 import { useWallet } from '../contexts/WalletContext';
-import { ethers } from 'ethers';
 import { Contract, uint256, hash } from 'starknet';
 
 function SwapPage() {
-<<<<<<< Updated upstream
-  const { ethAccount, starknetAccount, isWalletConnected } = useWallet();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [fromToken, setFromToken] = useState('ETH');
-  const [toToken, setToToken] = useState('STRK');
-  const [fromAmount, setFromAmount] = useState('0.1');
-  const [toAmount, setToAmount] = useState('0.1');
-  const [htlcHash, setHtlcHash] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
-  const [txHash, setTxHash] = useState('');
-  const [depositStatus, setDepositStatus] = useState('');
-  const [secretKey, setSecretKey] = useState('');
-  const [secretHash, setSecretHash] = useState('');
-  const [ethBalance, setEthBalance] = useState('0');
-  const [strkBalance, setStrkBalance] = useState('0');
-  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
-  
-  // Contract addresses
-  const ethContractAddress = '0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6'; // Ethereum Sepolia
-  const starknetContractAddress = '0x057dcc8c6f5a214c3bc3d6c62a311977f0e73f34c89a7a0b3e3c9a7c5febfe69'; // Starknet Sepolia (example address)
-=======
   const { 
     isWalletConnected, 
     ethAccount, 
+    starknetAccount,
     ethBalance,
     checkSufficientBalance,
     createLimitOrder,
@@ -58,6 +36,15 @@ function SwapPage() {
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [message, setMessage] = useState('');
   
+  // Additional state variables for compatibility
+  const [secretKey, setSecretKey] = useState('');
+  const [secretHash, setSecretHash] = useState('');
+  const [txHash, setTxHash] = useState('');
+  const [htlcHash, setHtlcHash] = useState('');
+  const [depositStatus, setDepositStatus] = useState('');
+  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+  const [strkBalance, setStrkBalance] = useState('0');
+  
   // New state for escrow testing
   const [escrowAddress, setEscrowAddress] = useState('');
   const [secret, setSecret] = useState('');
@@ -70,20 +57,16 @@ function SwapPage() {
 
   // Exchange rate: 0.1 ETH = 300 STRK
   const EXCHANGE_RATE = 3000; // 300 STRK / 0.1 ETH = 3000 STRK per ETH
->>>>>>> Stashed changes
+  
+  // Contract addresses
+  const starknetContractAddress = '0x057dcc8c6f5a214c3bc3d6c62a311977f0e73f34c89a7a0b3e3c9a7c5febfe69';
 
   // Steps for the progress bar
   const steps = [
-<<<<<<< Updated upstream
-    { number: 1, label: 'SWAP INPUT' },
-    { number: 2, label: 'LOCK TOKENS' },
-    { number: 3, label: 'CLAIM TOKENS' }
-=======
     { number: 1, label: 'SWAP INPUT', status: 'completed' },
     { number: 2, label: 'DEPOSIT ETH', status: 'active' },
     { number: 3, label: 'WAIT FOR TAKER', status: 'pending' },
     { number: 4, label: 'CLAIM TOKENS', status: 'pending' }
->>>>>>> Stashed changes
   ];
 
   // Effect to generate a random secret key when the component mounts
@@ -107,15 +90,6 @@ function SwapPage() {
       setIsLoadingBalances(true);
       
       try {
-        // Fetch ETH balance if Ethereum account is connected
-        if (ethAccount) {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const balance = await provider.getBalance(ethAccount);
-          setEthBalance(ethers.utils.formatEther(balance));
-        } else {
-          setEthBalance('0');
-        }
-        
         // Fetch STRK balance if Starknet account is connected
         if (starknetAccount) {
           try {
@@ -199,15 +173,6 @@ function SwapPage() {
 
   const handleRelease = async () => {
     if (!ethAccount) {
-<<<<<<< Updated upstream
-      alert('Please connect your Ethereum wallet first');
-      return;
-    }
-
-    // Check if user has enough balance
-    if (parseFloat(fromAmount) > parseFloat(ethBalance)) {
-      alert(`Insufficient ETH balance. You have ${ethBalance} ETH available.`);
-=======
       setDepositError('Please connect your Ethereum wallet first');
       return;
     }
@@ -217,91 +182,14 @@ function SwapPage() {
       return;
     }
 
-
-
     // Check if user has sufficient balance
     if (!checkSufficientBalance(fromAmount)) {
       const required = parseFloat(fromAmount) + 0.001;
       setDepositError(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.001 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
->>>>>>> Stashed changes
       return;
     }
 
     setIsProcessing(true);
-<<<<<<< Updated upstream
-    setDepositStatus('Initiating deposit transaction...');
-
-    try {
-      // Get the Ethereum provider
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-
-      // Create transaction parameters
-      const txParams = {
-        to: ethContractAddress,
-        value: ethers.utils.parseEther(fromAmount),
-        gasLimit: 100000,
-      };
-
-      // Send the transaction
-      const tx = await signer.sendTransaction(txParams);
-      setTxHash(tx.hash);
-      setDepositStatus('Transaction submitted! Waiting for confirmation...');
-      
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
-      
-      if (receipt.status === 1) {
-        // Transaction successful
-        setDepositStatus('ETH locked successfully! STRK tokens are now claimable on Starknet Sepolia testnet.');
-        setHtlcHash(receipt.transactionHash);
-        
-        // Save user data
-        const userData = {
-          userAddress: ethAccount,
-          starknetAddress: starknetAccount?.address,
-          amount: fromAmount,
-          txHash: receipt.transactionHash,
-          secretHash: secretHash,
-          secretKey: secretKey,
-          timestamp: new Date().toISOString()
-        };
-        
-        // Send deposit data to backend
-        try {
-          const response = await fetch('http://localhost:5000/api/deposit', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData),
-          });
-          
-          if (!response.ok) {
-            console.error('Failed to save deposit data to server');
-          }
-        } catch (apiError) {
-          console.error('API error:', apiError);
-        }
-        
-        setTimeout(() => {
-          setIsProcessing(false);
-          setCurrentStep(3);
-        }, 2000);
-      } else {
-        // Transaction failed
-        setDepositStatus('Transaction failed. Please try again.');
-        setTimeout(() => {
-          setIsProcessing(false);
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('Error during deposit:', error);
-      setDepositStatus(`Transaction failed: ${error.message}`);
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 2000);
-=======
     setDepositError('');
     setDepositSuccess(false);
 
@@ -362,7 +250,6 @@ function SwapPage() {
       
       setDepositError(errorMessage);
       setIsProcessing(false);
->>>>>>> Stashed changes
     }
   };
 
@@ -686,10 +573,6 @@ function SwapPage() {
               <span>{fromToken}</span>
             </div>
           </div>
-<<<<<<< Updated upstream
-          {parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance) && (
-            <div className="error-message">Insufficient balance</div>
-=======
           {fromToken === 'ETH' && ethAccount && fromAmount && (
             <div className="balance-info">
               <span>Available: {parseFloat(ethBalance).toFixed(4)} ETH</span>
@@ -697,7 +580,6 @@ function SwapPage() {
                 <span className="insufficient-balance">Insufficient balance</span>
               )}
             </div>
->>>>>>> Stashed changes
           )}
         </div>
         
@@ -706,28 +588,14 @@ function SwapPage() {
         </div>
         
         <div className="token-input">
-<<<<<<< Updated upstream
-          <div className="label-balance-row">
-            <label>To</label>
-            <div className="balance-display">
-              Balance: {isLoadingBalances ? '...' : toToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {toToken}
-            </div>
-          </div>
-=======
           <label>To (Calculated)</label>
->>>>>>> Stashed changes
           <div className="input-container">
             <input
               type="number"
               placeholder="0.0"
               value={toAmount}
-<<<<<<< Updated upstream
-              onChange={(e) => setToAmount(e.target.value)}
-              readOnly={fromToken === 'ETH'} // Make it read-only when swapping ETH to STRK
-=======
               readOnly
               className="calculated-input"
->>>>>>> Stashed changes
             />
             <div className="token-selector">
               <img 
@@ -743,7 +611,7 @@ function SwapPage() {
 
 
       
-<<<<<<< Updated upstream
+
       <div className="network-info">
         <div className="network-item">
           <span>From Network:</span>
@@ -758,73 +626,32 @@ function SwapPage() {
       <button 
         className="swap-button" 
         onClick={handleSwap}
-        disabled={
-          !fromAmount || 
-          !isWalletConnected || 
-          parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)
-        }
+        disabled={!fromAmount || !toAmount || !isWalletConnected}
       >
-        {!isWalletConnected 
-          ? 'Connect Wallet to Swap' 
-          : parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)
-            ? 'Insufficient Balance'
-            : 'Proceed to Lock Tokens'
-        }
+        {!isWalletConnected ? 'Connect Wallet to Swap' : 'Agree to Swap'}
       </button>
-=======
-              <button 
-          className="swap-button" 
-          onClick={handleSwap}
-          disabled={!fromAmount || !toAmount || !isWalletConnected}
-        >
-          {!isWalletConnected ? 'Connect Wallet to Swap' : 'Agree to Swap'}
-        </button>
->>>>>>> Stashed changes
     </div>
   );
 
   const renderStep2 = () => (
     <div className="swap-section">
-<<<<<<< Updated upstream
+
       <h2>Step 2: Lock Your Tokens</h2>
-=======
+
       <h2>Step 2: Deposit ETH</h2>
->>>>>>> Stashed changes
+
       
       {!isProcessing ? (
         <>
           <div className="warning-box">
             <h3>⚠️ Important Warning</h3>
-<<<<<<< Updated upstream
-            <p>You are about to lock {fromAmount} {fromToken} in the HTLC contract on Ethereum Sepolia testnet.</p>
-            <p>Contract Address: <code>{ethContractAddress}</code></p>
-            <p>This action will make {toAmount} {toToken} claimable on the Starknet Sepolia testnet.</p>
-=======
             <p>You are about to deposit {fromAmount} ETH to create an HTLC + Limit Order swap.</p>
             <p>This action will lock your ETH in the HTLC contract. Make sure you understand the terms.</p>
->>>>>>> Stashed changes
           </div>
           
           <div className="swap-summary">
             <h3>Swap Summary</h3>
             <div className="summary-item">
-<<<<<<< Updated upstream
-              <span>You Lock:</span>
-              <span>{fromAmount} {fromToken}</span>
-            </div>
-            <div className="summary-item">
-              <span>You Will Receive:</span>
-              <span>{toAmount} {toToken}</span>
-            </div>
-            <div className="summary-item">
-              <span>Secret Hash:</span>
-              <span className="hash">{secretHash ? `${secretHash.substring(0, 10)}...${secretHash.substring(secretHash.length - 8)}` : 'Generating...'}</span>
-            </div>
-            <div className="summary-item">
-              <span>Available Balance:</span>
-              <span>{fromToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {fromToken}</span>
-            </div>
-=======
               <span>You Deposit:</span>
               <span>{fromAmount} ETH (Sepolia Testnet)</span>
             </div>
@@ -846,7 +673,7 @@ function SwapPage() {
                 <span>{parseFloat(ethBalance).toFixed(4)} ETH</span>
               </div>
             )}
->>>>>>> Stashed changes
+
           </div>
 
           {message && (
@@ -857,33 +684,15 @@ function SwapPage() {
           
           <button 
             className="release-button" 
-<<<<<<< Updated upstream
-            onClick={handleRelease}
-            disabled={parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)}
-          >
-            {parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance) 
-              ? 'Insufficient Balance' 
-              : `Lock ${fromAmount} ${fromToken}`
-            }
-=======
             onClick={handleDeposit}
             disabled={!ethAccount || !fromAmount || !checkSufficientBalance(fromAmount)}
           >
             {!ethAccount ? 'Connect ETH Wallet' : `Deposit ${fromAmount} ETH`}
->>>>>>> Stashed changes
           </button>
         </>
       ) : (
         <div className="processing-section">
           <div className="processing-spinner"></div>
-<<<<<<< Updated upstream
-          <h3>Processing Your Transaction</h3>
-          <p>{depositStatus}</p>
-          {txHash && (
-            <p>Transaction Hash: <code>{txHash}</code></p>
-          )}
-          <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
-=======
           <h3>Processing Your Deposit</h3>
           <p>Depositing ETH to HTLC contract...</p>
           {depositSuccess && (
@@ -891,7 +700,6 @@ function SwapPage() {
               <p>✅ ETH deposited to HTLC contract successfully!</p>
             </div>
           )}
->>>>>>> Stashed changes
         </div>
       )}
     </div>
@@ -967,7 +775,7 @@ function SwapPage() {
     <div className="swap-section">
       <h2>Step 4: Claim Your Tokens</h2>
       
-<<<<<<< Updated upstream
+
       {!isProcessing ? (
         <>
           <div className="success-box">
@@ -1016,7 +824,7 @@ function SwapPage() {
           <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
         </div>
       )}
-=======
+      
       <div className="success-box">
         <h3>✅ Order Filled!</h3>
         <p>Your {toAmount} {toToken} are ready to be claimed on StarkNet Sepolia.</p>
@@ -1045,7 +853,6 @@ function SwapPage() {
       <button className="claim-button" onClick={handleClaim}>
         Claim {toAmount} {toToken} on StarkNet
       </button>
->>>>>>> Stashed changes
     </div>
   );
 
