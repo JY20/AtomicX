@@ -7,8 +7,8 @@ dotenv.config();
 
 // Get StarkNet network
 export function getStarknetNetwork() {
-  const networkName = process.env.STARKNET_NETWORK || 'goerli-alpha';
-  const network = networkName === 'mainnet' ? starknetNetworks.mainnet : starknetNetworks.goerliAlpha;
+  const networkName = process.env.STARKNET_NETWORK || 'sepolia';
+  const network = networkName === 'sepolia' ? starknetNetworks.sepolia : starknetNetworks.goerliAlpha;
   return network;
 }
 

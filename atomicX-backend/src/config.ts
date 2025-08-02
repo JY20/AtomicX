@@ -9,24 +9,36 @@ export const networks: Record<string, Network> = {
     name: 'Sepolia',
     chainId: 11155111,
     rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://sepolia.drpc.org',
-    factoryAddress: '0x46dD29f29FB4816A4E7bd1Dc6458d1dFCA097993', // StarknetEscrowFactory address
+    factoryAddress: '0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6', // StarknetEscrowFactory address
     explorerUrl: 'https://sepolia.etherscan.io'
   }
 };
 
 // StarkNet Networks
+export const integrationContracts = {
+  atomicSwapIntegration: "0x9FdEb27FcAb2D04930b7d861602Ea42B5d3bCA47",
+  htlcFactory: "0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6",
+  oneInchWrapper: "0x5633F8a3FeFF2E8F615CbB17CC29946a51BaEEf9",
+  network: "sepolia"
+};
+
+export const oneInchContracts = {
+  oneInchWrapper: "0x5633F8a3FeFF2E8F615CbB17CC29946a51BaEEf9",
+  network: "sepolia"
+};
+
 export const starknetNetworks = {
+  sepolia: {
+    name: 'sepolia',
+    chainId: 'SN_SEPOLIA',
+    nodeUrl: process.env.STARKNET_SEPOLIA_URL || 'https://starknet-testnet.drpc.org',
+    explorerUrl: 'https://sepolia.starkscan.co'
+  },
   goerliAlpha: {
     name: 'goerli-alpha',
     chainId: 'SN_GOERLI',
     nodeUrl: process.env.STARKNET_NODE_URL || 'https://alpha4.starknet.io',
     explorerUrl: 'https://goerli.voyager.online'
-  },
-  mainnet: {
-    name: 'mainnet',
-    chainId: 'SN_MAIN',
-    nodeUrl: process.env.STARKNET_MAINNET_URL || 'https://alpha-mainnet.starknet.io',
-    explorerUrl: 'https://voyager.online'
   }
 };
 
@@ -63,7 +75,7 @@ export const escrowABI = [
 ];
 
 // StarkNet HTLC Contract Address
-export const starknetHtlcAddress = process.env.STARKNET_HTLC_ADDRESS || '0x0';
+export const starknetHtlcAddress = '0xa69c1661b6d13';
 
 // StarkNet HTLC Contract ABI (Cairo contract interface)
 export const starknetHtlcABI = {
