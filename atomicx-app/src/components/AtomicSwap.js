@@ -60,7 +60,7 @@ const AtomicSwap = () => {
             <div className="process-step">
               <div className="step-number">1</div>
               <div className="step-content">
-                <p>Confirms transaction and offers to swap 300 STRK for 0.1 Sepolia ETH</p>
+                <p>Confirms transaction and offers to swap 2,600 STRK for 0.1 Sepolia ETH</p>
               </div>
             </div>
             
@@ -80,7 +80,7 @@ const AtomicSwap = () => {
               <div className="step-number">3</div>
               <div className="step-content">
                 <p>A HTLC contract is automatically generated using Cairo</p>
-                <p>300 STRK is deposited into the contract on StarkNet Sepolia</p>
+                <p>2,600 STRK is deposited into the contract on StarkNet Sepolia</p>
               </div>
             </div>
             

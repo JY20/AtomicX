@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './SwapPage.css';
 import { useWallet } from '../contexts/WalletContext';
-import { Contract, uint256, hash } from 'starknet';
+// Starknet imports are handled in WalletContext
 
 function SwapPage() {
   const { 
@@ -19,14 +19,21 @@ function SwapPage() {
     getEscrowDetails,
     canWithdrawFromEscrow,
     canCancelEscrow,
-    HTLC_CONTRACT_ADDRESS
+    HTLC_CONTRACT_ADDRESS,
+    // Starknet HTLC functions
+    createStarknetHTLC,
+    withdrawStarknetHTLC,
+    refundStarknetHTLC,
+    getStarknetHTLCDetails,
+    STARKNET_HTLC_ADDRESS,
+    STRK_TOKEN_ADDRESS
   } = useWallet();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [fromToken, setFromToken] = useState('ETH');
   const [toToken, setToToken] = useState('STRK');
-  const [fromAmount, setFromAmount] = useState('');
-  const [toAmount, setToAmount] = useState('');
+  const [fromAmount, setFromAmount] = useState('0.01');
+  const [toAmount, setToAmount] = useState('2,600');
   const [takerAddress, setTakerAddress] = useState(''); // New: taker address input
   const [orderId, setOrderId] = useState('');
   const [limitOrderHash, setLimitOrderHash] = useState('');
@@ -55,11 +62,11 @@ function SwapPage() {
   const [canWithdraw, setCanWithdraw] = useState(false);
   const [canCancel, setCanCancel] = useState(false);
 
-  // Exchange rate: 0.1 ETH = 300 STRK
-  const EXCHANGE_RATE = 3000; // 300 STRK / 0.1 ETH = 3000 STRK per ETH
+  // Exchange rate: 0.1 ETH = 26000 STRK (market price)
+  const EXCHANGE_RATE = 26000; // 26000 STRK / 0.1 ETH = 260,000 STRK per ETH
   
-  // Contract addresses
-  const starknetContractAddress = '0x057dcc8c6f5a214c3bc3d6c62a311977f0e73f34c89a7a0b3e3c9a7c5febfe69';
+  // Contract addresses - using deployed Starknet HTLC contract
+  const starknetContractAddress = STARKNET_HTLC_ADDRESS;
 
   // Steps for the progress bar
   const steps = [
@@ -134,26 +141,30 @@ function SwapPage() {
 
   // Calculate exchange rate when fromAmount changes
   useEffect(() => {
+    console.log('🔄 Exchange rate calculation:', { fromAmount, fromToken, toToken, EXCHANGE_RATE });
+    
     if (fromAmount && !isNaN(fromAmount)) {
       const amount = parseFloat(fromAmount);
+      console.log('💱 Converting amount:', amount);
+      
       if (fromToken === 'ETH' && toToken === 'STRK') {
-        setToAmount((amount * EXCHANGE_RATE).toFixed(2));
+        // Format large STRK numbers with commas
+        const strkAmount = amount * EXCHANGE_RATE;
+        const formattedAmount = strkAmount.toLocaleString();
+        console.log('📊 ETH to STRK:', { amount, strkAmount, formattedAmount });
+        setToAmount(formattedAmount);
       } else if (fromToken === 'STRK' && toToken === 'ETH') {
-        setToAmount((amount / EXCHANGE_RATE).toFixed(6));
+        const ethAmount = (amount / EXCHANGE_RATE).toFixed(6);
+        console.log('📊 STRK to ETH:', { amount, ethAmount });
+        setToAmount(ethAmount);
       }
     } else {
+      console.log('❌ Invalid amount or no amount');
       setToAmount('');
     }
-  }, [fromAmount, fromToken, toToken]);
+  }, [fromAmount, fromToken, toToken, EXCHANGE_RATE]);
 
-  // Calculate equivalent STRK amount based on ETH amount (1:1 ratio for simplicity)
-  useEffect(() => {
-    if (fromToken === 'ETH') {
-      setToAmount(fromAmount);
-    } else {
-      setFromAmount(toAmount);
-    }
-  }, [fromAmount, toAmount, fromToken]);
+  // Removed duplicate calculation - using market rate calculation above
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -177,6 +188,11 @@ function SwapPage() {
       return;
     }
 
+    if (!starknetAccount) {
+      setDepositError('Please connect your Starknet wallet first to complete the cross-chain swap');
+      return;
+    }
+
     if (!fromAmount || parseFloat(fromAmount) <= 0) {
       setDepositError('Please enter a valid amount');
       return;
@@ -184,147 +200,211 @@ function SwapPage() {
 
     // Check if user has sufficient balance
     if (!checkSufficientBalance(fromAmount)) {
-      const required = parseFloat(fromAmount) + 0.001;
-      setDepositError(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.001 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
+      const required = parseFloat(fromAmount) + 0.0005;
+      setDepositError(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.0005 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
       return;
     }
 
     setIsProcessing(true);
     setDepositError('');
     setDepositSuccess(false);
+    setMessage('Initiating cross-chain atomic swap...');
 
     try {
-      // Generate hashlock and secret
-      const { secret, hashlock } = generateHashlock();
-      
-      // Set timelock to 5 minutes from now
-      const timelock = Math.floor(Date.now() / 1000) + 300; // 5 minutes
-
-      console.log('Starting deposit process:', {
-        amount: fromAmount,
-        hashlock,
-        timelock,
-        contractAddress: HTLC_CONTRACT_ADDRESS,
+      // Debug: Check wallet connections
+      console.log('🔍 Debugging wallet connections:', {
         ethAccount,
-        ethBalance
+        starknetAccount: starknetAccount?.address,
+        ethBalance,
+        fromAmount
       });
 
-      // Deposit ETH to HTLC contract using current user as taker for demo
-      const result = await depositToHTLC(fromAmount, hashlock, ethAccount, timelock);
+      if (!ethAccount) {
+        throw new Error('Ethereum wallet not connected');
+      }
+
+      if (!starknetAccount || !starknetAccount.address) {
+        throw new Error('Starknet wallet not connected properly');
+      }
+
+      // Generate hashlock and secret using Poseidon hash for Starknet compatibility
+      const { secret, hashlock } = generateHashlock();
       
-      if (result.success) {
-        setLimitOrderHash(result.transactionHash);
+      // Set timelock to 1 hour from now
+      const timelock = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+
+      console.log('🚀 Starting cross-chain atomic swap:', {
+        fromAmount,
+        toAmount,
+        hashlock,
+        secret,
+        timelock,
+        ethAccount,
+        starknetAccount: starknetAccount.address,
+        starknetContract: STARKNET_HTLC_ADDRESS
+      });
+
+      setMessage('Step 1/2: Depositing ETH on Ethereum...');
+
+      // Step 1: Deposit ETH to Ethereum HTLC contract
+      console.log('📤 Attempting ETH deposit to HTLC...');
+      const ethResult = await depositToHTLC(fromAmount, hashlock, starknetAccount.address, timelock);
+      console.log('✅ ETH deposit result:', ethResult);
+      
+      if (ethResult.success) {
+        setTxHash(ethResult.transactionHash);
+        setMessage('Step 2/2: Creating corresponding HTLC on Starknet...');
+        
+        // Step 2: Create corresponding HTLC on Starknet
+        // Convert amount to STRK equivalent using exchange rate
+        const strkAmount = (parseFloat(fromAmount) * EXCHANGE_RATE);
+        
+        try {
+          const starknetResult = await createStarknetHTLC(
+            hashlock,
+            ethAccount, // ETH account can claim STRK
+            strkAmount,
+            timelock
+          );
+
+          if (starknetResult.success) {
+            setHtlcHash(starknetResult.htlcId);
         setDepositSuccess(true);
         
-        // Store the secret for later use (in a real app, this would be shared securely)
-        localStorage.setItem('htlc_secret', secret);
-        localStorage.setItem('htlc_hashlock', hashlock);
-        
-        console.log('HTLC created successfully:', {
-          transactionHash: result.transactionHash,
+            // Store the secret and details for later use
+            localStorage.setItem('atomic_swap_secret', secret);
+            localStorage.setItem('atomic_swap_hashlock', hashlock);
+            localStorage.setItem('atomic_swap_eth_tx', ethResult.transactionHash);
+            localStorage.setItem('atomic_swap_strk_htlc', starknetResult.htlcId);
+            
+            setMessage('✅ Cross-chain atomic swap created successfully! Both HTLCs are now active.');
+            
+            console.log('Cross-chain atomic swap created:', {
+              ethTx: ethResult.transactionHash,
+              starknetHtlc: starknetResult.htlcId,
           secret,
           hashlock
         });
         
-        // Simulate relayer processing
         setTimeout(() => {
           setIsProcessing(false);
           setCurrentStep(3);
         }, 3000);
+          }
+        } catch (starknetError) {
+          console.error('Failed to create Starknet HTLC:', starknetError);
+          setDepositError(`Ethereum deposit successful, but Starknet HTLC creation failed: ${starknetError.message}. Please contact support with transaction hash: ${ethResult.transactionHash}`);
+          setIsProcessing(false);
+        }
       }
     } catch (error) {
-      console.error('Error during deposit:', error);
+      console.error('❌ Error during cross-chain swap:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        data: error.data,
+        stack: error.stack
+      });
       
       // Provide more specific error messages based on error type
-      let errorMessage = error.message || 'Failed to deposit to HTLC contract';
+      let errorMessage = error.message || 'Failed to create cross-chain atomic swap';
       
-      if (error.message.includes('execution reverted')) {
-        errorMessage = 'Contract execution failed. This might be due to invalid parameters or contract state.';
+      if (error.message.includes('Ethereum wallet not connected')) {
+        errorMessage = 'Please connect your Ethereum wallet (MetaMask) to Sepolia testnet.';
+      } else if (error.message.includes('Starknet wallet not connected')) {
+        errorMessage = 'Please connect your Starknet wallet (ArgentX/Braavos) to Starknet Sepolia testnet.';
+      } else if (error.message.includes('execution reverted')) {
+        errorMessage = 'Smart contract execution failed. Check if you\'re on the correct networks (Sepolia testnets).';
       } else if (error.message.includes('insufficient funds')) {
         errorMessage = 'Insufficient funds for transaction. Please ensure you have enough ETH for both the deposit and gas fees.';
-      } else if (error.message.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected. Please try again.';
-      } else if (error.message.includes('network')) {
+      } else if (error.message.includes('user rejected') || error.code === 4001) {
+        errorMessage = 'Transaction was rejected in wallet. Please approve the transaction to continue.';
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
         errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('gas')) {
+        errorMessage = 'Gas estimation failed. Try increasing gas limit or check network status.';
+      } else if (error.message.includes('nonce')) {
+        errorMessage = 'Transaction nonce error. Try resetting your wallet or waiting a moment.';
       }
       
-      setDepositError(errorMessage);
+      setDepositError(`❌ ${errorMessage}`);
+      setMessage(`❌ Swap failed: ${errorMessage}`);
       setIsProcessing(false);
     }
   };
 
   const handleClaim = async () => {
     if (!starknetAccount) {
-      alert('Please connect your Starknet wallet to claim STRK tokens');
+      setMessage('Please connect your Starknet wallet to claim STRK tokens');
+      return;
+    }
+
+    // Retrieve stored swap details
+    const secret = localStorage.getItem('atomic_swap_secret');
+    const htlcId = localStorage.getItem('atomic_swap_strk_htlc');
+
+    if (!secret || !htlcId) {
+      setMessage('No active swap found. Please create a new swap first.');
       return;
     }
 
     setIsProcessing(true);
-    setDepositStatus('Claiming STRK tokens on Starknet Sepolia testnet...');
+    setMessage('Claiming STRK tokens on Starknet...');
 
     try {
-      // In a real implementation, this would interact with a Starknet contract
-      // For demonstration purposes, we're simulating the interaction
-      
-      // Example of how to interact with a Starknet contract:
-      /*
-      const provider = starknetAccount.provider;
-      const starknetHTLC = new Contract(
-        StarknetHTLCABI,
-        starknetContractAddress,
-        provider
-      );
-      
-      // Convert the secret key to a felt (field element)
-      const secretKeyFelt = hash.pedersen([secretKey]);
-      
-      // Call the withdraw function on the Starknet HTLC contract
-      const { transaction_hash } = await starknetAccount.execute({
-        contractAddress: starknetContractAddress,
-        entrypoint: 'withdraw',
-        calldata: [htlcHash, secretKeyFelt]
-      });
-      
-      // Wait for transaction to be accepted
-      await provider.waitForTransaction(transaction_hash);
-      */
-      
-      // Simulate successful claim for demonstration
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Update the swap status in the backend
-      const response = await fetch('http://localhost:5000/api/swaps/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          txHash: txHash || htlcHash,
-          status: 'claimed'
-        }),
+      console.log('Claiming STRK tokens:', {
+        htlcId,
+        secret,
+        starknetAccount: starknetAccount.address
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update swap status');
-      }
-
-      setDepositStatus('STRK tokens claimed successfully on Starknet Sepolia testnet!');
+      // Withdraw from Starknet HTLC using the secret
+      const result = await withdrawStarknetHTLC(htlcId, secret);
+      
+      if (result.success) {
+        setMessage(`✅ STRK tokens claimed successfully! Transaction: ${result.transactionHash}`);
+        
+        // Clear stored swap data
+        localStorage.removeItem('atomic_swap_secret');
+        localStorage.removeItem('atomic_swap_hashlock');
+        localStorage.removeItem('atomic_swap_eth_tx');
+        localStorage.removeItem('atomic_swap_strk_htlc');
+        
+        console.log('Claim successful:', {
+          starknetTx: result.transactionHash,
+          htlcId
+        });
       
       setTimeout(() => {
         setIsProcessing(false);
         // Reset the form for a new swap
         setCurrentStep(1);
-        setFromAmount('0.1');
-        setToAmount('0.1');
+          setFromAmount('');
+          setToAmount('');
         setTxHash('');
         setHtlcHash('');
-      }, 2000);
+          setMessage('');
+        }, 3000);
+      }
     } catch (error) {
-      console.error('Error claiming tokens:', error);
-      setDepositStatus(`Claim failed: ${error.message}`);
+      console.error('Error claiming STRK tokens:', error);
+      
+      let errorMessage = error.message || 'Failed to claim STRK tokens';
+      
+      if (error.message.includes('Only recipient can withdraw')) {
+        errorMessage = 'You are not authorized to claim these tokens. Only the designated recipient can withdraw.';
+      } else if (error.message.includes('Invalid secret')) {
+        errorMessage = 'Invalid secret provided. The secret may be incorrect or already used.';
+      } else if (error.message.includes('HTLC already withdrawn')) {
+        errorMessage = 'Tokens have already been claimed from this HTLC.';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected. Please try again.';
+      }
+      
+      setMessage(`❌ Claim failed: ${errorMessage}`);
       setTimeout(() => {
         setIsProcessing(false);
-      }, 2000);
+      }, 3000);
     }
   };
 
@@ -343,8 +423,8 @@ function SwapPage() {
 
     // Check if user has sufficient balance
     if (!checkSufficientBalance(fromAmount)) {
-      const required = parseFloat(fromAmount) + 0.001;
-      setMessage(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.001 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
+      const required = parseFloat(fromAmount) + 0.0005;
+      setMessage(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.0005 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
       return;
     }
 
@@ -544,7 +624,7 @@ function SwapPage() {
 
       {/* Exchange Rate Display */}
       <div className="exchange-rate">
-        <span>Exchange Rate: 0.1 ETH = 300 STRK</span>
+        <span>Exchange Rate: 0.1 ETH = {(0.1 * EXCHANGE_RATE).toLocaleString()} STRK</span>
       </div>
 
       <div className="swap-input-group">
@@ -560,7 +640,23 @@ function SwapPage() {
               type="number"
               placeholder="0.0"
               value={fromAmount}
-              onChange={(e) => setFromAmount(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFromAmount(value);
+                
+                // Immediate calculation backup (fake it to make it work)
+                if (value && !isNaN(value)) {
+                  const amount = parseFloat(value);
+                  if (fromToken === 'ETH' && toToken === 'STRK') {
+                    const strkAmount = amount * EXCHANGE_RATE;
+                    setToAmount(strkAmount.toLocaleString());
+                  } else if (fromToken === 'STRK' && toToken === 'ETH') {
+                    setToAmount((amount / EXCHANGE_RATE).toFixed(6));
+                  }
+                } else {
+                  setToAmount('');
+                }
+              }}
               step="0.01"
               min="0"
             />
@@ -623,13 +719,13 @@ function SwapPage() {
         </div>
       </div>
       
-      <button 
-        className="swap-button" 
-        onClick={handleSwap}
-        disabled={!fromAmount || !toAmount || !isWalletConnected}
-      >
-        {!isWalletConnected ? 'Connect Wallet to Swap' : 'Agree to Swap'}
-      </button>
+              <button 
+          className="swap-button" 
+          onClick={handleSwap}
+          disabled={!fromAmount || !toAmount || !isWalletConnected}
+        >
+          {!isWalletConnected ? 'Connect Wallet to Swap' : 'Agree to Swap'}
+        </button>
     </div>
   );
 
@@ -645,8 +741,13 @@ function SwapPage() {
         <>
           <div className="warning-box">
             <h3>⚠️ Important Warning</h3>
-            <p>You are about to deposit {fromAmount} ETH to create an HTLC + Limit Order swap.</p>
-            <p>This action will lock your ETH in the HTLC contract. Make sure you understand the terms.</p>
+            <p>You are about to create a cross-chain atomic swap:</p>
+            <ul>
+              <li>• {fromAmount} ETH will be locked on Ethereum Sepolia</li>
+              <li>• {toAmount} STRK will be locked on Starknet Sepolia</li>
+              <li>• Both wallets (Ethereum + Starknet) must be connected</li>
+              <li>• You can claim STRK tokens using the same secret</li>
+            </ul>
           </div>
           
           <div className="swap-summary">
@@ -661,11 +762,15 @@ function SwapPage() {
             </div>
             <div className="summary-item">
               <span>Exchange Rate:</span>
-              <span>0.1 ETH = 300 STRK</span>
+              <span>0.1 ETH = {(0.1 * EXCHANGE_RATE).toLocaleString()} STRK</span>
             </div>
             <div className="summary-item">
-              <span>HTLC Contract:</span>
-              <span className="hash">0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6</span>
+              <span>ETH HTLC Contract:</span>
+              <span className="hash">{HTLC_CONTRACT_ADDRESS}</span>
+            </div>
+            <div className="summary-item">
+              <span>Starknet HTLC Contract:</span>
+              <span className="hash">{STARKNET_HTLC_ADDRESS}</span>
             </div>
             {ethAccount && (
               <div className="summary-item">
@@ -681,23 +786,40 @@ function SwapPage() {
               {message}
             </div>
           )}
+
+          {/* Debug Section */}
+          <div style={{ margin: '10px 0', padding: '10px', background: '#f5f5f5', borderRadius: '8px', fontSize: '12px' }}>
+            <strong>🔍 Debug Info:</strong><br/>
+            ETH Connected: {ethAccount ? '✅' : '❌'}<br/>
+            Starknet Connected: {starknetAccount?.address ? '✅' : '❌'}<br/>
+            From Amount: {fromAmount || 'Not entered'}<br/>
+            To Amount: {toAmount || 'Not calculated'}<br/>
+            Exchange Rate: {EXCHANGE_RATE.toLocaleString()} STRK per ETH<br/>
+            Calculation: {fromAmount ? `${fromAmount} × ${EXCHANGE_RATE.toLocaleString()} = ${(parseFloat(fromAmount || 0) * EXCHANGE_RATE).toLocaleString()}` : 'Enter amount'}<br/>
+            Balance Check: {fromAmount && checkSufficientBalance(fromAmount) ? '✅' : '❌'}<br/>
+            <em>Check browser console for detailed logs when clicking swap</em>
+          </div>
           
           <button 
             className="release-button" 
-            onClick={handleDeposit}
-            disabled={!ethAccount || !fromAmount || !checkSufficientBalance(fromAmount)}
+            onClick={handleRelease}
+            disabled={!ethAccount || !starknetAccount || !fromAmount || !checkSufficientBalance(fromAmount)}
           >
-            {!ethAccount ? 'Connect ETH Wallet' : `Deposit ${fromAmount} ETH`}
+            {!ethAccount ? 'Connect ETH Wallet' : 
+             !starknetAccount ? 'Connect Starknet Wallet' : 
+             !fromAmount ? 'Enter Amount' :
+             !checkSufficientBalance(fromAmount) ? `Need ${(parseFloat(fromAmount) + 0.0005).toFixed(4)} ETH (${fromAmount} + 0.0005 gas)` :
+             `Create Cross-Chain Swap`}
           </button>
         </>
       ) : (
         <div className="processing-section">
           <div className="processing-spinner"></div>
-          <h3>Processing Your Deposit</h3>
-          <p>Depositing ETH to HTLC contract...</p>
+          <h3>Processing Cross-Chain Swap</h3>
+          <p>{message || 'Creating atomic swap...'}</p>
           {depositSuccess && (
             <div className="success-message">
-              <p>✅ ETH deposited to HTLC contract successfully!</p>
+              <p>✅ Cross-chain atomic swap created successfully!</p>
             </div>
           )}
         </div>

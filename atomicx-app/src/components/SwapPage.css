@@ -6,6 +6,16 @@
   justify-content: center;
   padding: 2rem;
   font-family: 'Space Grotesk', sans-serif;
+  color: #111827; /* Override global white text color */
+}
+
+/* Ensure all text in swap page is black unless specifically overridden */
+.swap-page * {
+  color: inherit;
+}
+
+.swap-page p, .swap-page span, .swap-page div:not(.token-selector):not(.release-button):not(.swap-button):not(.next-button):not(.action-button) {
+  color: #111827;
 }
 
 .swap-container {
