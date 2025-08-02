@@ -18,6 +18,9 @@ function SwapPage() {
   const [depositStatus, setDepositStatus] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [secretHash, setSecretHash] = useState('');
+  const [ethBalance, setEthBalance] = useState('0');
+  const [strkBalance, setStrkBalance] = useState('0');
+  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   
   // Contract addresses
   const ethContractAddress = '0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6'; // Ethereum Sepolia
@@ -45,6 +48,55 @@ function SwapPage() {
     setSecretHash(hash);
   }, []);
 
+  // Effect to fetch account balances when accounts change
+  useEffect(() => {
+    const fetchBalances = async () => {
+      setIsLoadingBalances(true);
+      
+      try {
+        // Fetch ETH balance if Ethereum account is connected
+        if (ethAccount) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const balance = await provider.getBalance(ethAccount);
+          setEthBalance(ethers.utils.formatEther(balance));
+        } else {
+          setEthBalance('0');
+        }
+        
+        // Fetch STRK balance if Starknet account is connected
+        if (starknetAccount) {
+          try {
+            // In a real implementation, we would fetch the actual STRK balance
+            // This is a placeholder that simulates fetching the balance
+            // const starknetProvider = starknetAccount.provider;
+            // const tokenContract = new Contract(StarknetTokenABI, starknetTokenAddress, starknetProvider);
+            // const balance = await tokenContract.balanceOf(starknetAccount.address);
+            // setStrkBalance(uint256.uint256ToBN(balance).toString() / 1e18);
+            
+            // For demonstration, we'll set a mock balance
+            setStrkBalance('10.0');
+          } catch (error) {
+            console.error('Error fetching STRK balance:', error);
+            setStrkBalance('0');
+          }
+        } else {
+          setStrkBalance('0');
+        }
+      } catch (error) {
+        console.error('Error fetching balances:', error);
+      } finally {
+        setIsLoadingBalances(false);
+      }
+    };
+    
+    fetchBalances();
+    
+    // Set up an interval to refresh balances every 30 seconds
+    const intervalId = setInterval(fetchBalances, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [ethAccount, starknetAccount]);
+
   useEffect(() => {
     let timer;
     if (isProcessing && timeRemaining > 0) {
@@ -68,6 +120,11 @@ function SwapPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatBalance = (balance) => {
+    // Format balance to 4 decimal places
+    return parseFloat(balance).toFixed(4);
+  };
+
   const handleSwap = () => {
     if (!fromAmount) return;
     setCurrentStep(2);
@@ -76,6 +133,12 @@ function SwapPage() {
   const handleRelease = async () => {
     if (!ethAccount) {
       alert('Please connect your Ethereum wallet first');
+      return;
+    }
+
+    // Check if user has enough balance
+    if (parseFloat(fromAmount) > parseFloat(ethBalance)) {
+      alert(`Insufficient ETH balance. You have ${ethBalance} ETH available.`);
       return;
     }
 
@@ -242,7 +305,12 @@ function SwapPage() {
       <h2>Step 1: Enter Swap Details</h2>
       <div className="swap-input-group">
         <div className="token-input">
-          <label>From</label>
+          <div className="label-balance-row">
+            <label>From</label>
+            <div className="balance-display">
+              Balance: {isLoadingBalances ? '...' : fromToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {fromToken}
+            </div>
+          </div>
           <div className="input-container">
             <input
               type="number"
@@ -250,15 +318,18 @@ function SwapPage() {
               value={fromAmount}
               onChange={(e) => setFromAmount(e.target.value)}
             />
-                            <div className="token-selector">
-                  <img 
-                    src={`/${fromToken === 'ETH' ? 'ethereum' : 'starknet'}.png`} 
-                    alt={`${fromToken} logo`} 
-                    className="token-logo"
-                  />
-                  <span>{fromToken}</span>
-                </div>
+            <div className="token-selector">
+              <img 
+                src={`/${fromToken === 'ETH' ? 'ethereum' : 'starknet'}.png`} 
+                alt={`${fromToken} logo`} 
+                className="token-logo"
+              />
+              <span>{fromToken}</span>
+            </div>
           </div>
+          {parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance) && (
+            <div className="error-message">Insufficient balance</div>
+          )}
         </div>
         
         <div className="swap-arrow" onClick={switchTokens}>
@@ -266,7 +337,12 @@ function SwapPage() {
         </div>
         
         <div className="token-input">
-          <label>To</label>
+          <div className="label-balance-row">
+            <label>To</label>
+            <div className="balance-display">
+              Balance: {isLoadingBalances ? '...' : toToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {toToken}
+            </div>
+          </div>
           <div className="input-container">
             <input
               type="number"
@@ -275,14 +351,14 @@ function SwapPage() {
               onChange={(e) => setToAmount(e.target.value)}
               readOnly={fromToken === 'ETH'} // Make it read-only when swapping ETH to STRK
             />
-                            <div className="token-selector">
-                  <img 
-                    src={`/${toToken === 'ETH' ? 'ethereum' : 'starknet'}.png`} 
-                    alt={`${toToken} logo`} 
-                    className="token-logo"
-                  />
-                  <span>{toToken}</span>
-                </div>
+            <div className="token-selector">
+              <img 
+                src={`/${toToken === 'ETH' ? 'ethereum' : 'starknet'}.png`} 
+                alt={`${toToken} logo`} 
+                className="token-logo"
+              />
+              <span>{toToken}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -301,9 +377,18 @@ function SwapPage() {
       <button 
         className="swap-button" 
         onClick={handleSwap}
-        disabled={!fromAmount || !isWalletConnected}
+        disabled={
+          !fromAmount || 
+          !isWalletConnected || 
+          parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)
+        }
       >
-        {!isWalletConnected ? 'Connect Wallet to Swap' : 'Proceed to Lock Tokens'}
+        {!isWalletConnected 
+          ? 'Connect Wallet to Swap' 
+          : parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)
+            ? 'Insufficient Balance'
+            : 'Proceed to Lock Tokens'
+        }
       </button>
     </div>
   );
@@ -335,10 +420,21 @@ function SwapPage() {
               <span>Secret Hash:</span>
               <span className="hash">{secretHash ? `${secretHash.substring(0, 10)}...${secretHash.substring(secretHash.length - 8)}` : 'Generating...'}</span>
             </div>
+            <div className="summary-item">
+              <span>Available Balance:</span>
+              <span>{fromToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {fromToken}</span>
+            </div>
           </div>
           
-          <button className="release-button" onClick={handleRelease}>
-            Lock {fromAmount} {fromToken}
+          <button 
+            className="release-button" 
+            onClick={handleRelease}
+            disabled={parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)}
+          >
+            {parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance) 
+              ? 'Insufficient Balance' 
+              : `Lock ${fromAmount} ${fromToken}`
+            }
           </button>
         </>
       ) : (
@@ -388,6 +484,10 @@ function SwapPage() {
             <div className="summary-item">
               <span>Starknet Contract:</span>
               <span className="hash">{starknetContractAddress}</span>
+            </div>
+            <div className="summary-item">
+              <span>Available STRK Balance:</span>
+              <span>{formatBalance(strkBalance)} STRK</span>
             </div>
           </div>
           

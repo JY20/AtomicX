@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"2gpt88q5mmvs4","package_name":"atomicx_contract","contract_name":"StarknetHTLC","module_path":"atomicx_contract::StarknetHTLC::StarknetHTLC","artifacts":{"sierra":"atomicx_contract_StarknetHTLC.contract_class.json","casm":"atomicx_contract_StarknetHTLC.compiled_contract_class.json"}}]}

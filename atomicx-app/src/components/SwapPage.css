@@ -330,6 +330,12 @@
   transform: translateY(-2px);
 }
 
+.release-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+}
+
 /* Processing Section */
 .processing-section {
   text-align: center;
@@ -433,6 +439,26 @@
 .network-name {
   font-weight: 600;
   color: #a855f7;
+}
+
+.label-balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.balance-display {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
