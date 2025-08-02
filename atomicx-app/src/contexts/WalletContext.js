@@ -153,8 +153,8 @@ export const WalletProvider = ({ children }) => {
         // If chain detection fails, proceed with connection
         setStarknetAccount(starknet.account);
         setShowStarknetDropdown(false);
-        return;
-      }
+          return;
+        }
       
       console.log('Connected to Starknet network:', chainId);
       
@@ -306,8 +306,23 @@ export const WalletProvider = ({ children }) => {
       });
 
       // Convert amount to u256 format for display in Starknet wallet
-      const amountInUnits = ethers.utils.parseEther(amount.toString());
-      const amountU256 = uint256.bnToUint256(amountInUnits.toString());
+      // IMPORTANT: We need to limit the amount to avoid felt overflow errors
+      // Limit to a reasonable amount that won't cause overflow (max ~1000 ETH worth)
+      const safeAmount = Math.min(parseFloat(amount), 1000).toString();
+      console.log('🔒 Using safe amount to avoid overflow:', { originalAmount: amount, safeAmount });
+      
+      const amountInUnits = ethers.utils.parseEther(safeAmount);
+      // Ensure we're working with strings to avoid overflow
+      const amountLow = amountInUnits.mod(ethers.constants.MaxUint256).toString();
+      const amountHigh = "0"; // Keep high bits as 0 to avoid overflow
+      
+      console.log('💰 Amount conversion:', {
+        originalAmount: amount,
+        safeAmount,
+        amountInUnits: amountInUnits.toString(),
+        amountLow,
+        amountHigh
+      });
       
       // Create a real Starknet transaction that will trigger ArgentX/Braavos
       // This will trigger the wallet even if contract doesn't exist
@@ -319,9 +334,9 @@ export const WalletProvider = ({ children }) => {
             hashlock,
             recipient,
             STRK_TOKEN_ADDRESS || "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", // Default to STRK token
-            amountU256.low,
-            amountU256.high,
-            timelock
+            amountLow, // Low bits as separate parameter
+            amountHigh, // High bits as separate parameter
+            timelock.toString() // Ensure timelock is a string
           ]
         }
       ]);
@@ -423,10 +438,10 @@ export const WalletProvider = ({ children }) => {
       const result = await contract.refund(htlcId);
 
       console.log('Starknet HTLC refund:', result);
-
+      
       // Wait for transaction confirmation
       await starknetAccount.waitForTransaction(result.transaction_hash);
-
+      
       return {
         success: true,
         transactionHash: result.transaction_hash

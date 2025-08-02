@@ -1,1 +1,0 @@
-{"version":1,"contracts":[{"id":"qt07pl4v1cnsc","package_name":"quantmart_contract","contract_name":"StarknetHTLC","module_path":"quantmart_contract::StarknetHTLC::StarknetHTLC","artifacts":{"sierra":"quantmart_contract_StarknetHTLC.contract_class.json","casm":"quantmart_contract_StarknetHTLC.compiled_contract_class.json"}}]}

@@ -23,7 +23,8 @@ pub trait IHTLC<TContractState> {
         hashlock: felt252,
         recipient: ContractAddress,
         token: ContractAddress,
-        amount: u256,
+        amount_low: felt252,  // Low bits of amount
+        amount_high: felt252, // High bits of amount
         timelock: u64
     ) -> felt252;
     
@@ -102,7 +103,8 @@ mod StarknetHTLC {
             hashlock: felt252,
             recipient: ContractAddress,
             token: ContractAddress,
-            amount: u256,
+            amount_low: felt252,  // Low bits of amount
+            amount_high: felt252, // High bits of amount
             timelock: u64
         ) -> felt252 {
             // Get caller address
@@ -111,6 +113,13 @@ mod StarknetHTLC {
             // Validate inputs
             assert(recipient.into() != 0, 'Invalid recipient address');
             assert(token.into() != 0, 'Invalid token address');
+            
+            // Convert separate low/high bits to u256 to avoid felt overflow
+            let amount = u256 { 
+                low: amount_low.try_into().unwrap(), 
+                high: amount_high.try_into().unwrap() 
+            };
+            
             assert(amount > u256 { low: 0, high: 0 }, 'Amount must be greater than 0');
             assert(timelock > 0, 'Timelock must be greater than 0');
             
@@ -186,6 +195,7 @@ mod StarknetHTLC {
             // Verify secret using keccak hash (compatible with Ethereum)
             // Convert secret to u256 for keccak hashing
             let mut data = ArrayTrait::new();
+            // Use a safe conversion that won't overflow
             let secret_u256 = u256 { low: secret.try_into().unwrap(), high: 0 };
             data.append(secret_u256);
             let hash_result = keccak_u256s_be_inputs(data.span());
