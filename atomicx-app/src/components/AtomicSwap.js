@@ -29,7 +29,7 @@ const AtomicSwap = () => {
                   <li>Hash locked ID</li>
                   <li>Order details</li>
                 </ul>
-                <p className="highlight">Amount: 0.01 Sepolia ETH &gt; 100 Testnet STRK</p>
+                <p className="highlight">Amount: 0.1 Sepolia ETH &gt; 300 Testnet STRK</p>
               </div>
             </div>
             
@@ -37,7 +37,7 @@ const AtomicSwap = () => {
               <div className="step-number">3</div>
               <div className="step-content">
                 <p>A HTLC contract is created by the maker</p>
-                <p>An automatic deposit contract vault is created to lock user's Ethereum</p>
+                <p>An automatic deposit contract vault is created to lock user's Sepolia ETH</p>
               </div>
             </div>
             
@@ -60,7 +60,7 @@ const AtomicSwap = () => {
             <div className="process-step">
               <div className="step-number">1</div>
               <div className="step-content">
-                <p>Confirms transaction and offers to swap 100 STRK for 0.01 Sepolia ETH</p>
+                <p>Confirms transaction and offers to swap 300 STRK for 0.1 Sepolia ETH</p>
               </div>
             </div>
             
@@ -80,7 +80,7 @@ const AtomicSwap = () => {
               <div className="step-number">3</div>
               <div className="step-content">
                 <p>A HTLC contract is automatically generated using Cairo</p>
-                <p>100 STRK is deposited into the contract</p>
+                <p>300 STRK is deposited into the contract on StarkNet Sepolia</p>
               </div>
             </div>
             
@@ -115,7 +115,7 @@ const AtomicSwap = () => {
               <ul>
                 <li>Watches both blockchains for swap events.</li>
                 <li>Generates and manages secrets for hashlocks.</li>
-                <li>Sends messages between Ethereum and Starknet (using a bridge or messaging protocol).</li>
+                <li>Sends messages between Sepolia and StarkNet Sepolia (using a bridge or messaging protocol).</li>
                 <li>Ensures atomicity: either both sides of the swap happen, or neither does.</li>
               </ul>
             </div>

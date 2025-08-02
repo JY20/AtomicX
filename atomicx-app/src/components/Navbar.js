@@ -61,7 +61,7 @@ function Navbar() {
                 <div className="wallet-type">ETH</div>
                 <div className="wallet-details">
                   <div className="wallet-address">{formatAddress(ethAccount)}</div>
-                  <div className="wallet-network">Ethereum Mainnet</div>
+                  <div className="wallet-network">Sepolia Testnet</div>
                 </div>
                 <button className="disconnect-btn" onClick={disconnectEthWallet}>
                   Disconnect
@@ -96,7 +96,7 @@ function Navbar() {
                 <div className="wallet-type">STRK</div>
                 <div className="wallet-details">
                   <div className="wallet-address">{formatAddress(starknetAccount?.address)}</div>
-                  <div className="wallet-network">Starknet Mainnet</div>
+                  <div className="wallet-network">StarkNet Sepolia</div>
                 </div>
                 <button className="disconnect-btn" onClick={disconnectStarknetWallet}>
                   Disconnect

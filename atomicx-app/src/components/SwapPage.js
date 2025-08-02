@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import './SwapPage.css';
 import { useWallet } from '../contexts/WalletContext';
 import { ethers } from 'ethers';
 import { Contract, uint256, hash } from 'starknet';
 
 function SwapPage() {
+<<<<<<< Updated upstream
   const { ethAccount, starknetAccount, isWalletConnected } = useWallet();
   const [currentStep, setCurrentStep] = useState(1);
   const [fromToken, setFromToken] = useState('ETH');
@@ -25,12 +27,63 @@ function SwapPage() {
   // Contract addresses
   const ethContractAddress = '0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6'; // Ethereum Sepolia
   const starknetContractAddress = '0x057dcc8c6f5a214c3bc3d6c62a311977f0e73f34c89a7a0b3e3c9a7c5febfe69'; // Starknet Sepolia (example address)
+=======
+  const { 
+    isWalletConnected, 
+    ethAccount, 
+    ethBalance,
+    checkSufficientBalance,
+    createLimitOrder,
+    depositToHTLC,
+    generateHashlock,
+    withdrawFromHTLC,
+    cancelEscrow,
+    getEscrowDetails,
+    canWithdrawFromEscrow,
+    canCancelEscrow,
+    HTLC_CONTRACT_ADDRESS
+  } = useWallet();
+  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [fromToken, setFromToken] = useState('ETH');
+  const [toToken, setToToken] = useState('STRK');
+  const [fromAmount, setFromAmount] = useState('');
+  const [toAmount, setToAmount] = useState('');
+  const [takerAddress, setTakerAddress] = useState(''); // New: taker address input
+  const [orderId, setOrderId] = useState('');
+  const [limitOrderHash, setLimitOrderHash] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
+  const [depositError, setDepositError] = useState('');
+  const [depositSuccess, setDepositSuccess] = useState(false);
+  const [message, setMessage] = useState('');
+  
+  // New state for escrow testing
+  const [escrowAddress, setEscrowAddress] = useState('');
+  const [secret, setSecret] = useState('');
+  const [hashlock, setHashlock] = useState('');
+  const [escrowDetails, setEscrowDetails] = useState(null);
+  const [withdrawalSuccess, setWithdrawalSuccess] = useState(false);
+  const [cancellationSuccess, setCancellationSuccess] = useState(false);
+  const [canWithdraw, setCanWithdraw] = useState(false);
+  const [canCancel, setCanCancel] = useState(false);
+
+  // Exchange rate: 0.1 ETH = 300 STRK
+  const EXCHANGE_RATE = 3000; // 300 STRK / 0.1 ETH = 3000 STRK per ETH
+>>>>>>> Stashed changes
 
   // Steps for the progress bar
   const steps = [
+<<<<<<< Updated upstream
     { number: 1, label: 'SWAP INPUT' },
     { number: 2, label: 'LOCK TOKENS' },
     { number: 3, label: 'CLAIM TOKENS' }
+=======
+    { number: 1, label: 'SWAP INPUT', status: 'completed' },
+    { number: 2, label: 'DEPOSIT ETH', status: 'active' },
+    { number: 3, label: 'WAIT FOR TAKER', status: 'pending' },
+    { number: 4, label: 'CLAIM TOKENS', status: 'pending' }
+>>>>>>> Stashed changes
   ];
 
   // Effect to generate a random secret key when the component mounts
@@ -99,11 +152,25 @@ function SwapPage() {
 
   useEffect(() => {
     let timer;
-    if (isProcessing && timeRemaining > 0) {
+    if (currentStep === 3 && timeRemaining > 0) {
       timer = setTimeout(() => setTimeRemaining(timeRemaining - 1), 1000);
     }
     return () => clearTimeout(timer);
-  }, [isProcessing, timeRemaining]);
+  }, [currentStep, timeRemaining]);
+
+  // Calculate exchange rate when fromAmount changes
+  useEffect(() => {
+    if (fromAmount && !isNaN(fromAmount)) {
+      const amount = parseFloat(fromAmount);
+      if (fromToken === 'ETH' && toToken === 'STRK') {
+        setToAmount((amount * EXCHANGE_RATE).toFixed(2));
+      } else if (fromToken === 'STRK' && toToken === 'ETH') {
+        setToAmount((amount / EXCHANGE_RATE).toFixed(6));
+      }
+    } else {
+      setToAmount('');
+    }
+  }, [fromAmount, fromToken, toToken]);
 
   // Calculate equivalent STRK amount based on ETH amount (1:1 ratio for simplicity)
   useEffect(() => {
@@ -132,6 +199,7 @@ function SwapPage() {
 
   const handleRelease = async () => {
     if (!ethAccount) {
+<<<<<<< Updated upstream
       alert('Please connect your Ethereum wallet first');
       return;
     }
@@ -139,10 +207,28 @@ function SwapPage() {
     // Check if user has enough balance
     if (parseFloat(fromAmount) > parseFloat(ethBalance)) {
       alert(`Insufficient ETH balance. You have ${ethBalance} ETH available.`);
+=======
+      setDepositError('Please connect your Ethereum wallet first');
+      return;
+    }
+
+    if (!fromAmount || parseFloat(fromAmount) <= 0) {
+      setDepositError('Please enter a valid amount');
+      return;
+    }
+
+
+
+    // Check if user has sufficient balance
+    if (!checkSufficientBalance(fromAmount)) {
+      const required = parseFloat(fromAmount) + 0.001;
+      setDepositError(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.001 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
+>>>>>>> Stashed changes
       return;
     }
 
     setIsProcessing(true);
+<<<<<<< Updated upstream
     setDepositStatus('Initiating deposit transaction...');
 
     try {
@@ -215,6 +301,68 @@ function SwapPage() {
       setTimeout(() => {
         setIsProcessing(false);
       }, 2000);
+=======
+    setDepositError('');
+    setDepositSuccess(false);
+
+    try {
+      // Generate hashlock and secret
+      const { secret, hashlock } = generateHashlock();
+      
+      // Set timelock to 5 minutes from now
+      const timelock = Math.floor(Date.now() / 1000) + 300; // 5 minutes
+
+      console.log('Starting deposit process:', {
+        amount: fromAmount,
+        hashlock,
+        timelock,
+        contractAddress: HTLC_CONTRACT_ADDRESS,
+        ethAccount,
+        ethBalance
+      });
+
+      // Deposit ETH to HTLC contract using current user as taker for demo
+      const result = await depositToHTLC(fromAmount, hashlock, ethAccount, timelock);
+      
+      if (result.success) {
+        setLimitOrderHash(result.transactionHash);
+        setDepositSuccess(true);
+        
+        // Store the secret for later use (in a real app, this would be shared securely)
+        localStorage.setItem('htlc_secret', secret);
+        localStorage.setItem('htlc_hashlock', hashlock);
+        
+        console.log('HTLC created successfully:', {
+          transactionHash: result.transactionHash,
+          secret,
+          hashlock
+        });
+        
+        // Simulate relayer processing
+        setTimeout(() => {
+          setIsProcessing(false);
+          setCurrentStep(3);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error during deposit:', error);
+      
+      // Provide more specific error messages based on error type
+      let errorMessage = error.message || 'Failed to deposit to HTLC contract';
+      
+      if (error.message.includes('execution reverted')) {
+        errorMessage = 'Contract execution failed. This might be due to invalid parameters or contract state.';
+      } else if (error.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction. Please ensure you have enough ETH for both the deposit and gas fees.';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected. Please try again.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      setDepositError(errorMessage);
+      setIsProcessing(false);
+>>>>>>> Stashed changes
     }
   };
 
@@ -293,16 +441,225 @@ function SwapPage() {
     }
   };
 
+  const handleDeposit = async () => {
+    if (!isWalletConnected) {
+      setMessage('Please connect your wallet first');
+      return;
+    }
+
+    if (!fromAmount || parseFloat(fromAmount) <= 0) {
+      setMessage('Please enter a valid amount');
+      return;
+    }
+
+
+
+    // Check if user has sufficient balance
+    if (!checkSufficientBalance(fromAmount)) {
+      const required = parseFloat(fromAmount) + 0.001;
+      setMessage(`Insufficient balance. You need at least ${required.toFixed(4)} ETH (${fromAmount} ETH + ~0.001 ETH for gas). Current balance: ${parseFloat(ethBalance).toFixed(4)} ETH`);
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage('');
+
+    try {
+      // Generate order ID and hash
+      const orderId = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const limitOrderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(orderId));
+      
+      setOrderId(orderId);
+      setLimitOrderHash(limitOrderHash);
+
+      // Generate hashlock and secret for HTLC
+      const { secret: generatedSecret, hashlock: generatedHashlock } = generateHashlock();
+      
+      // Store the secret and hashlock for later use
+      setSecret(generatedSecret);
+      setHashlock(generatedHashlock);
+      
+      // Set timelock (1 hour from now)
+      const timelock = Math.floor(Date.now() / 1000) + 3600;
+      
+      // Deposit to HTLC contract using the current user as taker for demo
+      const result = await depositToHTLC(fromAmount, generatedHashlock, ethAccount, timelock);
+      
+      // Extract escrow address from the transaction receipt
+      // The escrow address should be in the event logs
+      if (result.receipt && result.receipt.events) {
+        const escrowCreatedEvent = result.receipt.events.find(event => event.event === 'EscrowCreated');
+        if (escrowCreatedEvent) {
+          setEscrowAddress(escrowCreatedEvent.args.escrow);
+        }
+      }
+      
+      setMessage(`✅ ETH deposited successfully! Transaction: ${result.transactionHash}`);
+      setDepositSuccess(true);
+      
+      // Move to next step after successful deposit
+      setTimeout(() => {
+        setIsProcessing(false);
+        setCurrentStep(3);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error during deposit:', error);
+      
+      let errorMessage = error.message || 'Failed to deposit ETH';
+      
+      if (error.message.includes('execution reverted')) {
+        errorMessage = 'Contract execution failed. This might be due to invalid parameters or contract state.';
+      } else if (error.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction. Please ensure you have enough ETH for both the deposit and gas fees.';
+      } else if (error.message.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected. Please try again.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      setMessage(`❌ Error: ${errorMessage}`);
+      setIsProcessing(false);
+    }
+  };
+
+
+
   const switchTokens = () => {
     setFromToken(toToken);
     setToToken(fromToken);
-    setFromAmount(toAmount);
-    setToAmount(fromAmount);
+    // Reset amounts when switching
+    setFromAmount('');
+    setToAmount('');
+  };
+
+  // Function to get escrow details
+  const handleGetEscrowDetails = async () => {
+    if (!escrowAddress) {
+      setMessage('❌ No escrow address available');
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage('');
+
+    try {
+      const details = await getEscrowDetails(escrowAddress);
+      setEscrowDetails(details);
+      
+      // Check if current user can withdraw or cancel
+      const canWithdrawResult = await canWithdrawFromEscrow(escrowAddress);
+      const canCancelResult = await canCancelEscrow(escrowAddress);
+      
+      setCanWithdraw(canWithdrawResult);
+      setCanCancel(canCancelResult);
+      
+      setMessage(`✅ Escrow details loaded successfully!`);
+    } catch (error) {
+      console.error('Error getting escrow details:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Function to withdraw from escrow
+  const handleWithdraw = async () => {
+    if (!escrowAddress || !secret) {
+      setMessage('❌ Escrow address or secret not available');
+      return;
+    }
+
+    if (!canWithdraw) {
+      setMessage('❌ You are not the taker for this escrow. Only the taker can withdraw.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage('');
+
+    try {
+      const result = await withdrawFromHTLC(escrowAddress, secret);
+      setMessage(`✅ Withdrawal successful! Transaction: ${result.transactionHash}`);
+      setWithdrawalSuccess(true);
+      
+      // Update balance after withdrawal
+      setTimeout(() => {
+        window.location.reload(); // Refresh to update balance
+      }, 2000);
+    } catch (error) {
+      console.error('Error withdrawing from escrow:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Function to cancel escrow
+  const handleCancelEscrow = async () => {
+    if (!escrowAddress) {
+      setMessage('❌ No escrow address available');
+      return;
+    }
+
+    if (!canCancel) {
+      setMessage('❌ You are not the maker for this escrow. Only the maker can cancel.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage('');
+
+    try {
+      const result = await cancelEscrow(escrowAddress);
+      setMessage(`✅ Escrow cancelled successfully! Transaction: ${result.transactionHash}`);
+      setCancellationSuccess(true);
+      
+      // Update balance after cancellation
+      setTimeout(() => {
+        window.location.reload(); // Refresh to update balance
+      }, 2000);
+    } catch (error) {
+      console.error('Error cancelling escrow:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const renderStep1 = () => (
     <div className="swap-section">
       <h2>Step 1: Enter Swap Details</h2>
+      
+      {/* Network Information */}
+      <div className="network-info">
+        <div className="network-item">
+          <span className="network-label">From Network:</span>
+          <span className="network-value">
+            {fromToken === 'ETH' ? 'Sepolia Testnet' : 'StarkNet Sepolia'}
+          </span>
+        </div>
+        <div className="network-item">
+          <span className="network-label">To Network:</span>
+          <span className="network-value">
+            {toToken === 'ETH' ? 'Sepolia Testnet' : 'StarkNet Sepolia'}
+          </span>
+        </div>
+        {ethAccount && (
+          <div className="network-item">
+            <span className="network-label">Wallet Balance:</span>
+            <span className="network-value">
+              {parseFloat(ethBalance).toFixed(4)} ETH
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Exchange Rate Display */}
+      <div className="exchange-rate">
+        <span>Exchange Rate: 0.1 ETH = 300 STRK</span>
+      </div>
+
       <div className="swap-input-group">
         <div className="token-input">
           <div className="label-balance-row">
@@ -317,6 +674,8 @@ function SwapPage() {
               placeholder="0.0"
               value={fromAmount}
               onChange={(e) => setFromAmount(e.target.value)}
+              step="0.01"
+              min="0"
             />
             <div className="token-selector">
               <img 
@@ -327,8 +686,18 @@ function SwapPage() {
               <span>{fromToken}</span>
             </div>
           </div>
+<<<<<<< Updated upstream
           {parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance) && (
             <div className="error-message">Insufficient balance</div>
+=======
+          {fromToken === 'ETH' && ethAccount && fromAmount && (
+            <div className="balance-info">
+              <span>Available: {parseFloat(ethBalance).toFixed(4)} ETH</span>
+              {parseFloat(fromAmount) > parseFloat(ethBalance) && (
+                <span className="insufficient-balance">Insufficient balance</span>
+              )}
+            </div>
+>>>>>>> Stashed changes
           )}
         </div>
         
@@ -337,19 +706,28 @@ function SwapPage() {
         </div>
         
         <div className="token-input">
+<<<<<<< Updated upstream
           <div className="label-balance-row">
             <label>To</label>
             <div className="balance-display">
               Balance: {isLoadingBalances ? '...' : toToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {toToken}
             </div>
           </div>
+=======
+          <label>To (Calculated)</label>
+>>>>>>> Stashed changes
           <div className="input-container">
             <input
               type="number"
               placeholder="0.0"
               value={toAmount}
+<<<<<<< Updated upstream
               onChange={(e) => setToAmount(e.target.value)}
               readOnly={fromToken === 'ETH'} // Make it read-only when swapping ETH to STRK
+=======
+              readOnly
+              className="calculated-input"
+>>>>>>> Stashed changes
             />
             <div className="token-selector">
               <img 
@@ -362,7 +740,10 @@ function SwapPage() {
           </div>
         </div>
       </div>
+
+
       
+<<<<<<< Updated upstream
       <div className="network-info">
         <div className="network-item">
           <span>From Network:</span>
@@ -390,25 +771,44 @@ function SwapPage() {
             : 'Proceed to Lock Tokens'
         }
       </button>
+=======
+              <button 
+          className="swap-button" 
+          onClick={handleSwap}
+          disabled={!fromAmount || !toAmount || !isWalletConnected}
+        >
+          {!isWalletConnected ? 'Connect Wallet to Swap' : 'Agree to Swap'}
+        </button>
+>>>>>>> Stashed changes
     </div>
   );
 
   const renderStep2 = () => (
     <div className="swap-section">
+<<<<<<< Updated upstream
       <h2>Step 2: Lock Your Tokens</h2>
+=======
+      <h2>Step 2: Deposit ETH</h2>
+>>>>>>> Stashed changes
       
       {!isProcessing ? (
         <>
           <div className="warning-box">
             <h3>⚠️ Important Warning</h3>
+<<<<<<< Updated upstream
             <p>You are about to lock {fromAmount} {fromToken} in the HTLC contract on Ethereum Sepolia testnet.</p>
             <p>Contract Address: <code>{ethContractAddress}</code></p>
             <p>This action will make {toAmount} {toToken} claimable on the Starknet Sepolia testnet.</p>
+=======
+            <p>You are about to deposit {fromAmount} ETH to create an HTLC + Limit Order swap.</p>
+            <p>This action will lock your ETH in the HTLC contract. Make sure you understand the terms.</p>
+>>>>>>> Stashed changes
           </div>
           
           <div className="swap-summary">
             <h3>Swap Summary</h3>
             <div className="summary-item">
+<<<<<<< Updated upstream
               <span>You Lock:</span>
               <span>{fromAmount} {fromToken}</span>
             </div>
@@ -424,10 +824,40 @@ function SwapPage() {
               <span>Available Balance:</span>
               <span>{fromToken === 'ETH' ? formatBalance(ethBalance) : formatBalance(strkBalance)} {fromToken}</span>
             </div>
+=======
+              <span>You Deposit:</span>
+              <span>{fromAmount} ETH (Sepolia Testnet)</span>
+            </div>
+            <div className="summary-item">
+              <span>You Receive:</span>
+              <span>{toAmount} STRK (StarkNet Sepolia)</span>
+            </div>
+            <div className="summary-item">
+              <span>Exchange Rate:</span>
+              <span>0.1 ETH = 300 STRK</span>
+            </div>
+            <div className="summary-item">
+              <span>HTLC Contract:</span>
+              <span className="hash">0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6</span>
+            </div>
+            {ethAccount && (
+              <div className="summary-item">
+                <span>Your Balance:</span>
+                <span>{parseFloat(ethBalance).toFixed(4)} ETH</span>
+              </div>
+            )}
+>>>>>>> Stashed changes
           </div>
+
+          {message && (
+            <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
+              {message}
+            </div>
+          )}
           
           <button 
             className="release-button" 
+<<<<<<< Updated upstream
             onClick={handleRelease}
             disabled={parseFloat(fromAmount) > parseFloat(fromToken === 'ETH' ? ethBalance : strkBalance)}
           >
@@ -435,26 +865,109 @@ function SwapPage() {
               ? 'Insufficient Balance' 
               : `Lock ${fromAmount} ${fromToken}`
             }
+=======
+            onClick={handleDeposit}
+            disabled={!ethAccount || !fromAmount || !checkSufficientBalance(fromAmount)}
+          >
+            {!ethAccount ? 'Connect ETH Wallet' : `Deposit ${fromAmount} ETH`}
+>>>>>>> Stashed changes
           </button>
         </>
       ) : (
         <div className="processing-section">
           <div className="processing-spinner"></div>
+<<<<<<< Updated upstream
           <h3>Processing Your Transaction</h3>
           <p>{depositStatus}</p>
           {txHash && (
             <p>Transaction Hash: <code>{txHash}</code></p>
           )}
           <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
+=======
+          <h3>Processing Your Deposit</h3>
+          <p>Depositing ETH to HTLC contract...</p>
+          {depositSuccess && (
+            <div className="success-message">
+              <p>✅ ETH deposited to HTLC contract successfully!</p>
+            </div>
+          )}
+>>>>>>> Stashed changes
         </div>
       )}
     </div>
   );
 
+
+
+
+
   const renderStep3 = () => (
     <div className="swap-section">
-      <h2>Step 3: Claim Your Tokens</h2>
+      <h2>Step 3: Waiting for Taker</h2>
       
+      {!isProcessing ? (
+        <>
+          <div className="waiting-info">
+            <h3>⏳ HTLC Status: Active</h3>
+            <p>Your ETH has been locked in the HTLC contract. Waiting for a taker to complete the swap.</p>
+          </div>
+          
+          <div className="order-details">
+            <h3>HTLC Details</h3>
+            <div className="detail-item">
+              <span>Order ID:</span>
+              <span className="hash">{orderId}</span>
+            </div>
+            <div className="detail-item">
+              <span>Limit Order Hash:</span>
+              <span className="hash">{limitOrderHash}</span>
+            </div>
+            <div className="detail-item">
+              <span>HTLC Contract:</span>
+              <span className="hash">0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6</span>
+            </div>
+            <div className="detail-item">
+              <span>Amount Locked:</span>
+              <span>{fromAmount} ETH</span>
+            </div>
+            <div className="detail-item">
+              <span>Expected Return:</span>
+              <span>{toAmount} STRK</span>
+            </div>
+            <div className="detail-item">
+              <span>Time Remaining:</span>
+              <span><strong>{formatTime(timeRemaining)}</strong></span>
+            </div>
+          </div>
+
+          <div className="status-indicator">
+            <div className="status-dot active"></div>
+            <span>HTLC Active - Waiting for Taker</span>
+          </div>
+          
+          <button 
+            className="claim-button" 
+            onClick={() => setCurrentStep(4)}
+            disabled={timeRemaining > 0}
+          >
+            {timeRemaining > 0 ? `Wait ${formatTime(timeRemaining)}` : 'Proceed to Claim'}
+          </button>
+        </>
+      ) : (
+        <div className="processing-section">
+          <div className="processing-spinner"></div>
+          <h3>Processing HTLC</h3>
+          <p>Setting up your HTLC contract...</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className="swap-section">
+      <h2>Step 4: Claim Your Tokens</h2>
+      
+<<<<<<< Updated upstream
       {!isProcessing ? (
         <>
           <div className="success-box">
@@ -503,6 +1016,36 @@ function SwapPage() {
           <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
         </div>
       )}
+=======
+      <div className="success-box">
+        <h3>✅ Order Filled!</h3>
+        <p>Your {toAmount} {toToken} are ready to be claimed on StarkNet Sepolia.</p>
+      </div>
+      
+      <div className="swap-summary">
+        <h3>Final Summary</h3>
+        <div className="summary-item">
+          <span>You Paid:</span>
+          <span>{fromAmount} {fromToken} (Sepolia Testnet)</span>
+        </div>
+        <div className="summary-item">
+          <span>You Received:</span>
+          <span>{toAmount} {toToken} (StarkNet Sepolia)</span>
+        </div>
+        <div className="summary-item">
+          <span>Order ID:</span>
+          <span className="hash">{orderId}</span>
+        </div>
+        <div className="summary-item">
+          <span>Limit Order Hash:</span>
+          <span className="hash">{limitOrderHash}</span>
+        </div>
+      </div>
+      
+      <button className="claim-button" onClick={handleClaim}>
+        Claim {toAmount} {toToken} on StarkNet
+      </button>
+>>>>>>> Stashed changes
     </div>
   );
 
@@ -510,8 +1053,8 @@ function SwapPage() {
     <div className="swap-page">
       <div className="swap-container">
         <div className="swap-header">
-          <h1>Atomic Swap</h1>
-          <p>Secure cross-chain token exchange</p>
+          <h1>HTLC + Limit Order Swap</h1>
+          <p>Secure cross-chain token exchange with integrated limit orders</p>
         </div>
         
         {/* Progress Bar */}
@@ -531,7 +1074,17 @@ function SwapPage() {
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
         </div>
+
+        {/* Message Display */}
+        {message && (
+          <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
+            {message}
+          </div>
+        )}
+
+
       </div>
     </div>
   );
