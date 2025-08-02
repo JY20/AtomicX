@@ -199,6 +199,13 @@
   font-weight: 500;
 }
 
+.wallet-balance {
+  color: #fcd34d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+
 .disconnect-btn {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);

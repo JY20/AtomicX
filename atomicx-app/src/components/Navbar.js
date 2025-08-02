@@ -17,7 +17,9 @@ function Navbar() {
     disconnectStarknetWallet,
     formatAddress,
     setShowEthDropdown,
-    setShowStarknetDropdown
+    setShowStarknetDropdown,
+    ethBalance,
+    starknetBalance
   } = useWallet();
 
   return (
@@ -61,6 +63,7 @@ function Navbar() {
                 <div className="wallet-type">ETH</div>
                 <div className="wallet-details">
                   <div className="wallet-address">{formatAddress(ethAccount)}</div>
+                  <div className="wallet-balance">{parseFloat(ethBalance).toFixed(4)} ETH</div>
                   <div className="wallet-network">Sepolia Testnet</div>
                 </div>
                 <button className="disconnect-btn" onClick={disconnectEthWallet}>
@@ -96,6 +99,7 @@ function Navbar() {
                 <div className="wallet-type">STRK</div>
                 <div className="wallet-details">
                   <div className="wallet-address">{formatAddress(starknetAccount?.address)}</div>
+                  <div className="wallet-balance">{parseFloat(starknetBalance).toFixed(4)} STRK</div>
                   <div className="wallet-network">StarkNet Sepolia</div>
                 </div>
                 <button className="disconnect-btn" onClick={disconnectStarknetWallet}>

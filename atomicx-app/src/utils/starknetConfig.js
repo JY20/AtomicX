@@ -1,8 +1,10 @@
 // Starknet HTLC Contract Configuration
-export const STARKNET_HTLC_ADDRESS = '0x03825ee6c01c151e0b5eff2ce32776227e4ba79d5e7498c10bb7503d13f74fc9';
+export const hash = '0x0155ab7496dede9306cac15b61c76346db5d30ead2d7b70e55877b679fec5bea';
+export const STARKNET_HTLC_ADDRESS = '0x028cd39a0ba1144339b6d095e6323b994ed836d92dc160cb36150bf84724317d';
 
-// STRK Token address on Starknet Sepolia (placeholder - replace with actual)
-export const STRK_TOKEN_ADDRESS = '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7'; // ETH token on Starknet
+// Token addresses on Starknet Sepolia
+export const ETH_TOKEN_ADDRESS = '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7'; // ETH token on Starknet
+export const STRK_TOKEN_ADDRESS = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'; // STRK token on Starknet Sepolia
 
 export const STARKNET_HTLC_ABI = [
   {
@@ -42,6 +44,16 @@ export const STARKNET_HTLC_ABI = [
     "outputs": [{
       "type": "quantmart_contract::StarknetHTLC::HTLC"
     }],
+    "state_mutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "get_balance",
+    "inputs": [
+      {"name": "token_address", "type": "core::starknet::contract_address::ContractAddress"},
+      {"name": "user_address", "type": "core::starknet::contract_address::ContractAddress"}
+    ],
+    "outputs": [{"type": "core::integer::u256"}],
     "state_mutability": "view"
   }
 ];

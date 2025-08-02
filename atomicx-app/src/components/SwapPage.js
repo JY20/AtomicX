@@ -10,6 +10,7 @@ function SwapPage() {
     ethAccount, 
     starknetAccount,
     ethBalance,
+    starknetBalance, // Add starknetBalance from context
     checkSufficientBalance,
     createLimitOrder,
     depositToHTLC,
@@ -38,7 +39,7 @@ function SwapPage() {
   const [orderId, setOrderId] = useState('');
   const [limitOrderHash, setLimitOrderHash] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
+  const [timeRemaining, setTimeRemaining] = useState(60); // 1 minute
   const [depositError, setDepositError] = useState('');
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [message, setMessage] = useState('');
@@ -91,6 +92,7 @@ function SwapPage() {
     setSecretHash(hash);
   }, []);
 
+
   // Effect to fetch account balances when accounts change
   useEffect(() => {
     const fetchBalances = async () => {
@@ -100,18 +102,15 @@ function SwapPage() {
         // Fetch STRK balance if Starknet account is connected
         if (starknetAccount) {
           try {
-            // In a real implementation, we would fetch the actual STRK balance
-            // This is a placeholder that simulates fetching the balance
-            // const starknetProvider = starknetAccount.provider;
-            // const tokenContract = new Contract(StarknetTokenABI, starknetTokenAddress, starknetProvider);
-            // const balance = await tokenContract.balanceOf(starknetAccount.address);
-            // setStrkBalance(uint256.uint256ToBN(balance).toString() / 1e18);
+            // Use the actual starknetBalance from WalletContext
+            console.log('Using starknetBalance from WalletContext:', starknetBalance);
             
-            // For demonstration, we'll set a mock balance
-            setStrkBalance('10.0');
+            // Use the starknetBalance from WalletContext which is fetched using get_balance
+            console.log('Setting STRK balance to:', starknetBalance);
+            setStrkBalance(starknetBalance);
           } catch (error) {
-            console.error('Error fetching STRK balance:', error);
-            setStrkBalance('0');
+            console.error('Error setting STRK balance:', error);
+            setStrkBalance('0'); // Default to 0 if there's an error
           }
         } else {
           setStrkBalance('0');
@@ -123,13 +122,21 @@ function SwapPage() {
       }
     };
     
+    // Call immediately when the component mounts or dependencies change
     fetchBalances();
+    
+    // Log the current state values
+    console.log('Current balance values:', {
+      ethBalance,
+      starknetBalance,
+      localStrkBalance: strkBalance
+    });
     
     // Set up an interval to refresh balances every 30 seconds
     const intervalId = setInterval(fetchBalances, 30000);
     
     return () => clearInterval(intervalId);
-  }, [ethAccount, starknetAccount]);
+  }, [ethAccount, starknetAccount, starknetBalance]); // Add starknetBalance as dependency
 
   useEffect(() => {
     let timer;
@@ -174,7 +181,23 @@ function SwapPage() {
 
   const formatBalance = (balance) => {
     // Format balance to 4 decimal places
-    return parseFloat(balance).toFixed(4);
+    if (balance === undefined || balance === null) {
+      console.warn('Received undefined or null balance in formatBalance');
+      return '0.0000';
+    }
+    
+    // Format STRK balance properly using the actual value
+    if (balance === starknetBalance) {
+      console.log('Formatting STRK balance:', balance);
+      return parseFloat(balance).toFixed(4);
+    }
+    
+    try {
+      return parseFloat(balance).toFixed(4);
+    } catch (error) {
+      console.error('Error formatting balance:', error, 'Balance value:', balance);
+      return '0.0000';
+    }
   };
 
   const handleSwap = () => {

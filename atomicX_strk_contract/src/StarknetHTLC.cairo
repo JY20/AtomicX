@@ -33,6 +33,9 @@ pub trait IHTLC<TContractState> {
     fn refund(ref self: TContractState, htlc_id: felt252);
     
     fn get_htlc(self: @TContractState, htlc_id: felt252) -> HTLC;
+    
+    // New function to get token balance for any address
+    fn get_balance(self: @TContractState, token_address: ContractAddress, user_address: ContractAddress) -> u256;
 }
 
 // Define the ERC20 interface for token transfers
@@ -276,6 +279,17 @@ mod StarknetHTLC {
         // Get HTLC details
         fn get_htlc(self: @ContractState, htlc_id: felt252) -> HTLC {
             self.htlcs.read(htlc_id)
+        }
+        
+        // Get token balance for any address
+        fn get_balance(self: @ContractState, token_address: ContractAddress, user_address: ContractAddress) -> u256 {
+            // Create token contract dispatcher
+            let token = IERC20Dispatcher {
+                contract_address: token_address,
+            };
+            
+            // Call balanceOf function on the token contract
+            token.balanceOf(user_address)
         }
     }
 }
