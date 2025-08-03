@@ -73,8 +73,9 @@ function SwapPage() {
   const steps = [
     { number: 1, label: 'SWAP INPUT', status: 'completed' },
     { number: 2, label: 'DEPOSIT ETH', status: 'active' },
-    { number: 3, label: 'WAIT FOR TAKER', status: 'pending' },
-    { number: 4, label: 'CLAIM TOKENS', status: 'pending' }
+    { number: 3, label: 'CREATE ORDER', status: 'pending' },
+    { number: 4, label: 'WAIT FOR TAKER', status: 'pending' },
+    { number: 5, label: 'CLAIM TOKENS', status: 'pending' }
   ];
 
   // Effect to generate a random secret key when the component mounts
@@ -267,7 +268,7 @@ function SwapPage() {
         starknetContract: STARKNET_HTLC_ADDRESS
       });
 
-      setMessage('Step 1/2: Depositing ETH on Ethereum...');
+      setMessage('Step 1/3: Depositing ETH on Ethereum...');
 
       // Step 1: Deposit ETH to Ethereum HTLC contract
       console.log('📤 Attempting ETH deposit to HTLC...');
@@ -282,49 +283,26 @@ function SwapPage() {
           console.log('✅ Escrow created at address:', ethResult.escrowAddress);
           localStorage.setItem('atomic_swap_escrow', ethResult.escrowAddress);
         }
-        setMessage('Step 2/2: Creating corresponding HTLC on Starknet...');
         
-        // Step 2: Create corresponding HTLC on Starknet
-        // Convert amount to STRK equivalent using exchange rate
-        const strkAmount = (parseFloat(fromAmount) * EXCHANGE_RATE);
+        // Move to limit order creation step
+        setMessage('✅ ETH escrow created successfully! Moving to limit order creation...');
         
-        try {
-          const starknetResult = await createStarknetHTLC(
-            hashlock,
-            ethAccount, // ETH account can claim STRK
-            strkAmount,
-            timelock
-          );
-
-          if (starknetResult.success) {
-            setHtlcHash(starknetResult.htlcId);
-        setDepositSuccess(true);
+        // Store important data for later use
+        localStorage.setItem('atomic_swap_secret', secret);
+        localStorage.setItem('atomic_swap_hashlock', hashlock);
+        localStorage.setItem('atomic_swap_eth_tx', ethResult.transactionHash);
         
-            // Store the secret and details for later use
-            localStorage.setItem('atomic_swap_secret', secret);
-            localStorage.setItem('atomic_swap_hashlock', hashlock);
-            localStorage.setItem('atomic_swap_eth_tx', ethResult.transactionHash);
-            localStorage.setItem('atomic_swap_strk_htlc', starknetResult.htlcId);
-            
-            setMessage('✅ Cross-chain atomic swap created successfully! Both HTLCs are now active.');
-            
-            console.log('Cross-chain atomic swap created:', {
-              ethTx: ethResult.transactionHash,
-              starknetHtlc: starknetResult.htlcId,
-          secret,
-          hashlock
-        });
-        
+        // Wait a moment to show success message
         setTimeout(() => {
           setIsProcessing(false);
-          setCurrentStep(3);
-        }, 3000);
-          }
-        } catch (starknetError) {
-          console.error('Failed to create Starknet HTLC:', starknetError);
-          setDepositError(`Ethereum deposit successful, but Starknet HTLC creation failed: ${starknetError.message}. Please contact support with transaction hash: ${ethResult.transactionHash}`);
-          setIsProcessing(false);
-        }
+          setCurrentStep(3); // Move to the limit order creation step
+        }, 2000);
+        
+        // We'll handle Starknet HTLC creation in step 3 after limit order creation
+        setDepositSuccess(true);
+      } else {
+        setDepositError('Failed to create ETH escrow. Please try again.');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('❌ Error during cross-chain swap:', error);
@@ -358,6 +336,62 @@ function SwapPage() {
       
       setDepositError(`❌ ${errorMessage}`);
       setMessage(`❌ Swap failed: ${errorMessage}`);
+      setIsProcessing(false);
+    }
+  };
+
+  // Helper function to create Starknet HTLC
+  const handleCreateStarknetHTLC = async () => {
+    if (!starknetAccount) {
+      setMessage('Please connect your Starknet wallet to create HTLC');
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage('Creating HTLC on Starknet...');
+
+    try {
+      // Retrieve stored hashlock
+      const storedHashlock = localStorage.getItem('atomic_swap_hashlock');
+      const hashlockToUse = storedHashlock || hashlock;
+
+      if (!hashlockToUse) {
+        throw new Error('No hashlock found. Please restart the swap process.');
+      }
+
+      // Convert amount to STRK equivalent using exchange rate
+      const strkAmount = (parseFloat(fromAmount) * EXCHANGE_RATE);
+      
+      // Set timelock to 10 seconds from now
+      const timelock = Math.floor(Date.now() / 1000) + 10;
+      
+      const starknetResult = await createStarknetHTLC(
+        hashlockToUse,
+        ethAccount, // ETH account can claim STRK
+        strkAmount,
+        timelock
+      );
+
+      if (starknetResult.success) {
+        setHtlcHash(starknetResult.htlcId);
+        localStorage.setItem('atomic_swap_strk_htlc', starknetResult.htlcId);
+        
+        setMessage('✅ Cross-chain atomic swap with limit order created successfully! Both HTLCs are now active.');
+        
+        console.log('Cross-chain atomic swap created:', {
+          starknetHtlc: starknetResult.htlcId,
+          limitOrderHash: limitOrderHash || 'Not created',
+          escrowAddress: escrowAddress || 'Not available'
+        });
+        
+        setTimeout(() => {
+          setIsProcessing(false);
+          setCurrentStep(4); // Move to waiting for taker step
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Failed to create Starknet HTLC:', error);
+      setMessage(`Failed to create Starknet HTLC: ${error.message}`);
       setIsProcessing(false);
     }
   };
@@ -408,11 +442,14 @@ function SwapPage() {
         setIsProcessing(false);
         // Reset the form for a new swap
         setCurrentStep(1);
-          setFromAmount('');
-          setToAmount('');
+        setFromAmount('');
+        setToAmount('');
         setTxHash('');
         setHtlcHash('');
-          setMessage('');
+        setLimitOrderHash('');
+        setMessage('');
+        // Clear localStorage
+        localStorage.removeItem('atomic_swap_limit_order');
         }, 3000);
       }
     } catch (error) {
@@ -868,13 +905,133 @@ function SwapPage() {
 
   const renderStep3 = () => (
     <div className="swap-section">
-      <h2>Step 3: Waiting for Taker</h2>
+      <h2>Step 3: Create Limit Order</h2>
+      
+      {!isProcessing ? (
+        <>
+          <div className="waiting-info">
+            <h3>🔄 Creating 1inch Limit Order</h3>
+            <p>Creating a real limit order on 1inch Exchange using the Ethereum wallet.</p>
+            <p><strong>Contract Address:</strong> 0x5633F8a3FeFF2E8F615CbB17CC29946a51BaEEf9</p>
+          </div>
+          
+          <div className="order-details">
+            <h3>Order Details</h3>
+            <div className="detail-item">
+              <span>Order Type:</span>
+              <span>ETH → STRK Limit Order</span>
+            </div>
+            <div className="detail-item">
+              <span>Amount:</span>
+              <span>{fromAmount} ETH</span>
+            </div>
+            <div className="detail-item">
+              <span>Exchange Rate:</span>
+              <span>1 ETH = {EXCHANGE_RATE.toLocaleString()} STRK</span>
+            </div>
+            <div className="detail-item">
+              <span>Expected Return:</span>
+              <span>{toAmount} STRK</span>
+            </div>
+            <div className="detail-item">
+              <span>1inch Wrapper:</span>
+              <span className="hash">0x5633F8a3FeFF2E8F615CbB17CC29946a51BaEEf9</span>
+            </div>
+            <div className="detail-item">
+              <span>Wrapper Network:</span>
+              <span>Sepolia (Block #8893307)</span>
+            </div>
+            <div className="detail-item">
+              <span>Deployment Date:</span>
+              <span>August 2, 2025</span>
+            </div>
+            {limitOrderHash && (
+              <div className="detail-item">
+                <span>Limit Order Hash:</span>
+                <span className="hash">{limitOrderHash}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="status-indicator">
+            <div className="status-dot active"></div>
+            <span>{limitOrderHash ? 'Limit Order Created Successfully!' : 'Ready to Create Limit Order'}</span>
+          </div>
+          
+          {!limitOrderHash ? (
+            <button 
+              className="claim-button" 
+              onClick={async () => {
+                setIsProcessing(true);
+                setMessage('Creating limit order with 1inch wrapper...');
+                
+                try {
+                  // Prepare limit order data
+                  const limitOrderData = {
+                    makerAsset: "0x0000000000000000000000000000000000000000", // ETH
+                    // Use a valid Ethereum token address for the limit order
+                    // Using a known Sepolia token address that definitely exists
+                    takerAsset: "0x779877A7B0D9E8603169DdbD7836e478b4624789", // LINK token on Sepolia
+                    originalTakerAsset: STRK_TOKEN_ADDRESS, // Store original Starknet address for reference
+                    makerAmount: parseFloat(fromAmount),
+                    takerAmount: parseFloat(fromAmount) * EXCHANGE_RATE, // Convert to STRK amount
+                    maker: ethAccount
+                  };
+                  
+                  console.log('📊 Creating limit order with data:', limitOrderData);
+                  
+                  // Call createLimitOrder function
+                  const limitOrderResult = await createLimitOrder(limitOrderData);
+                  
+                  console.log('✅ Limit order created:', limitOrderResult);
+                  setLimitOrderHash(limitOrderResult);
+                  localStorage.setItem('atomic_swap_limit_order', limitOrderResult);
+                  
+                  setMessage('✅ Limit order created successfully!');
+                  setIsProcessing(false);
+                } catch (error) {
+                  console.error('❌ Error creating limit order:', error);
+                  setMessage(`Error creating limit order: ${error.message}`);
+                  setIsProcessing(false);
+                }
+              }}
+            >
+              Create Real Limit Order via 1inch Contract
+            </button>
+          ) : (
+            <button 
+              className="claim-button" 
+              onClick={() => {
+                setCurrentStep(4);
+                setMessage('Moving to HTLC creation...');
+                
+                // Continue with HTLC creation
+                handleCreateStarknetHTLC();
+              }}
+            >
+              Continue to Next Step
+            </button>
+          )}
+        </>
+      ) : (
+        <div className="processing-section">
+          <div className="processing-spinner"></div>
+          <h3>Processing Limit Order</h3>
+          <p>{message || 'Creating your limit order on 1inch Exchange...'}</p>
+        </div>
+      )}
+    </div>
+  );
+  
+  const renderStep4 = () => (
+    <div className="swap-section">
+      <h2>Step 4: Waiting for Taker</h2>
       
       {!isProcessing ? (
         <>
           <div className="waiting-info">
             <h3>⏳ HTLC Status: Active</h3>
-            <p>Your ETH has been locked in the HTLC contract. Waiting for a taker to complete the swap.</p>
+            <p>Your ETH has been locked in the HTLC contract and a limit order has been created. Waiting for a taker to complete the swap.</p>
           </div>
           
           <div className="order-details">
@@ -890,6 +1047,10 @@ function SwapPage() {
             <div className="detail-item">
               <span>HTLC Contract:</span>
               <span className="hash">0x53195abE02b3fc143D325c29F6EA2c963C8e9fc6</span>
+            </div>
+            <div className="detail-item">
+              <span>Escrow Address:</span>
+              <span className="hash">{escrowAddress || 'Not available'}</span>
             </div>
             <div className="detail-item">
               <span>Amount Locked:</span>
@@ -912,7 +1073,7 @@ function SwapPage() {
           
           <button 
             className="claim-button" 
-            onClick={() => setCurrentStep(4)}
+            onClick={() => setCurrentStep(5)}
             disabled={timeRemaining > 0}
           >
             {timeRemaining > 0 ? `Wait ${formatTime(timeRemaining)}` : 'Proceed to Claim'}
@@ -928,16 +1089,16 @@ function SwapPage() {
     </div>
   );
 
-  const renderStep4 = () => (
+  const renderStep5 = () => (
     <div className="swap-section">
-      <h2>Step 4: Claim Your Tokens</h2>
+      <h2>Step 5: Claim Your Tokens</h2>
       
-
       {!isProcessing ? (
         <>
           <div className="success-box">
             <h3>✅ Tokens Locked Successfully!</h3>
             <p>Your {fromAmount} {fromToken} have been locked in the HTLC contract on Ethereum Sepolia testnet.</p>
+            <p>A limit order has been created on 1inch Exchange.</p>
             <p>You can now claim {toAmount} {toToken} on the Starknet Sepolia testnet.</p>
           </div>
           
@@ -954,6 +1115,14 @@ function SwapPage() {
             <div className="summary-item">
               <span>Transaction Hash:</span>
               <span className="hash">{txHash || htlcHash}</span>
+            </div>
+            <div className="summary-item">
+              <span>Limit Order Hash:</span>
+              <span className="hash">{limitOrderHash || 'Not available'}</span>
+            </div>
+            <div className="summary-item">
+              <span>Escrow Address:</span>
+              <span className="hash">{escrowAddress || 'Not available'}</span>
             </div>
             <div className="summary-item">
               <span>Secret Key:</span>
@@ -981,35 +1150,6 @@ function SwapPage() {
           <p>Time Remaining: <strong>{formatTime(timeRemaining)}</strong></p>
         </div>
       )}
-      
-      <div className="success-box">
-        <h3>✅ Order Filled!</h3>
-        <p>Your {toAmount} {toToken} are ready to be claimed on StarkNet Sepolia.</p>
-      </div>
-      
-      <div className="swap-summary">
-        <h3>Final Summary</h3>
-        <div className="summary-item">
-          <span>You Paid:</span>
-          <span>{fromAmount} {fromToken} (Sepolia Testnet)</span>
-        </div>
-        <div className="summary-item">
-          <span>You Received:</span>
-          <span>{toAmount} {toToken} (StarkNet Sepolia)</span>
-        </div>
-        <div className="summary-item">
-          <span>Order ID:</span>
-          <span className="hash">{orderId}</span>
-        </div>
-        <div className="summary-item">
-          <span>Limit Order Hash:</span>
-          <span className="hash">{limitOrderHash}</span>
-        </div>
-      </div>
-      
-      <button className="claim-button" onClick={handleClaim}>
-        Claim {toAmount} {toToken} on StarkNet
-      </button>
     </div>
   );
 
@@ -1039,6 +1179,7 @@ function SwapPage() {
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
           {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
         </div>
 
         {/* Message Display */}
