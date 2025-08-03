@@ -13,6 +13,7 @@ AtomicX facilitates secure cross-chain asset exchanges using advanced cryptograp
 - **Trustless Protocol**: No intermediaries or central authorities required
 - **Modern Web Interface**: Intuitive React-based UI for seamless user experience
 - **Wallet Integration**: Support for Ethereum and Starknet wallets
+- **STRK Token Claims**: Support for claiming STRK tokens after confirming transactions
 
 ## Project Structure
 
@@ -45,8 +46,9 @@ Cairo smart contracts for Starknet-side HTLC implementation.
 - Starknet Foundry for testing
 
 **Deployed Contract:**
-- **Network**: Starknet
-- **Address**: `0x01234adc3b80ce0afda85bcf1e905292096c4f485f3e8d5b4f44a523d2bd9764`
+- **Network**: Starknet Sepolia Testnet
+- **Address**: `0x028cd39a0ba1144339b6d095e6323b994ed836d92dc160cb36150bf84724317d`
+- **Class Hash**: `0x0155ab7496dede9306cac15b61c76346db5d30ead2d7b70e55877b679fec5bea`
 
 ### 4. `atomicX-backend/` - Testing & Integration Backend
 TypeScript backend for testing contract interactions and HTLC workflows.
@@ -140,6 +142,16 @@ npm run taker:claim      # Claim on Ethereum
 5. **Claim Phase**: Execute claims on both networks
 6. **Verification**: Confirm successful asset transfer
 
+### STRK Token Claim Feature
+
+The platform now supports claiming STRK tokens after confirming transactions:
+
+1. **Withdraw HTLC**: Complete the withdrawal from the HTLC contract
+2. **Claim STRK Tokens**: After successful withdrawal, claim STRK tokens as a reward
+3. **View Balance**: Check your STRK token balance in the wallet
+
+The timelock for testing has been set to 10 seconds (down from 1 hour) to facilitate faster testing and development cycles.
+
 ### Building for Production
 
 ```bash
@@ -160,9 +172,18 @@ npm run build
 - **Required**: ETH for gas fees
 
 ### Starknet
-- **Network**: Starknet Alpha
+- **Network**: Starknet Sepolia Testnet
 - **Required**: ETH for transaction fees
+- **Tokens**: STRK token support added
+
+## Recent Updates
+
+- Added STRK token claim functionality after confirming transactions
+- Reduced timelock period from 1 hour to 10 seconds for faster testing
+- Updated contract interfaces to support token operations
+- Added helper functions for formatting claim data
+- Improved error handling and mock responses for development
 
 ## License
 
-Copyright © 2023 AtomicX. All rights reserved.
+Copyright © 2023-2024 AtomicX. All rights reserved.

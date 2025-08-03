@@ -36,6 +36,14 @@ pub trait IHTLC<TContractState> {
     
     // New function to get token balance for any address
     fn get_balance(self: @TContractState, token_address: ContractAddress, user_address: ContractAddress) -> u256;
+    
+    // Function to deposit funds directly into the contract
+    fn deposit_funds(
+        ref self: TContractState, 
+        token: ContractAddress, 
+        amount_low: felt252,  // Low bits of amount
+        amount_high: felt252  // High bits of amount
+    ) -> bool;
 }
 
 // Define the ERC20 interface for token transfers
@@ -64,12 +72,13 @@ mod StarknetHTLC {
     }
     
     #[event]
-    #[derive(Drop, starknet::Event)]
-    enum Event {
-        HTLCCreated: HTLCCreated,
-        HTLCWithdrawn: HTLCWithdrawn,
-        HTLCRefunded: HTLCRefunded,
-    }
+#[derive(Drop, starknet::Event)]
+enum Event {
+    HTLCCreated: HTLCCreated,
+    HTLCWithdrawn: HTLCWithdrawn,
+    HTLCRefunded: HTLCRefunded,
+    FundsDeposited: FundsDeposited,
+}
     
     #[derive(Drop, starknet::Event)]
     struct HTLCCreated {
@@ -89,9 +98,17 @@ mod StarknetHTLC {
     }
     
     #[derive(Drop, starknet::Event)]
-    struct HTLCRefunded {
-        htlc_id: felt252,
-    }
+struct HTLCRefunded {
+    htlc_id: felt252,
+}
+
+#[derive(Drop, starknet::Event)]
+struct FundsDeposited {
+    sender: ContractAddress,
+    token: ContractAddress,
+    amount: u256,
+    timestamp: u64,
+}
     
     #[constructor]
     fn constructor(ref self: ContractState) {
@@ -290,6 +307,49 @@ mod StarknetHTLC {
             
             // Call balanceOf function on the token contract
             token.balanceOf(user_address)
+        }
+        
+        // Deposit funds directly into the contract
+        fn deposit_funds(
+            ref self: ContractState, 
+            token: ContractAddress, 
+            amount_low: felt252,
+            amount_high: felt252
+        ) -> bool {
+            // Get caller address
+            let sender = get_caller_address();
+            
+            // Validate inputs
+            assert(token.into() != 0, 'Invalid token address');
+            
+            // Convert separate low/high bits to u256 to avoid felt overflow
+            let amount = u256 { 
+                low: amount_low.try_into().unwrap(), 
+                high: amount_high.try_into().unwrap() 
+            };
+            
+            assert(amount > u256 { low: 0, high: 0 }, 'Amount must be greater than 0');
+            
+            // Get current timestamp
+            let current_time = get_block_timestamp();
+            
+            // Transfer tokens from sender to contract
+            let token_contract = IERC20Dispatcher { contract_address: token };
+            let contract_address = get_contract_address();
+            let transfer_success = token_contract.transferFrom(sender, contract_address, amount);
+            assert(transfer_success, 'Token transfer failed');
+            
+            // Emit deposit event
+            self.emit(
+                FundsDeposited {
+                    sender,
+                    token,
+                    amount,
+                    timestamp: current_time
+                }
+            );
+            
+            true
         }
     }
 }

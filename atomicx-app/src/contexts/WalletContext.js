@@ -304,11 +304,38 @@ export const WalletProvider = ({ children }) => {
       // Convert amount to wei for display in MetaMask
       const amountInWei = ethers.utils.parseEther(amount.toString());
       
-      // Use ethers to send a transaction that will trigger MetaMask
-      const tx = await ethSigner.sendTransaction({
-        to: HTLC_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000001", // Use placeholder if no contract address
+      // Create contract instance for StarknetEscrowFactory
+      const factoryABI = [
+        "function createSrcEscrow((bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) immutables) external payable returns (address)"
+      ];
+      
+      const factory = new ethers.Contract(HTLC_CONTRACT_ADDRESS, factoryABI, ethSigner);
+      
+      // Create a random order hash
+      const orderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(`Order_${Date.now()}`));
+      
+      // Convert addresses to uint256 format
+      const makerAsUint256 = ethers.BigNumber.from(ethAccount).toString();
+      const takerAsUint256 = ethers.BigNumber.from(takerAddress).toString();
+      
+      // Create immutables struct
+      const immutables = {
+        orderHash: orderHash,
+        hashlock: hashlock,
+        maker: makerAsUint256,
+        taker: takerAsUint256,
+        token: "0", // 0 for ETH
+        amount: amountInWei.toString(),
+        safetyDeposit: "0", // No safety deposit
+        timelocks: timelock.toString() // Use the provided timelock
+      };
+      
+      console.log('📝 Creating escrow with immutables:', immutables);
+      
+      // Call createSrcEscrow function on the factory contract
+      const tx = await factory.createSrcEscrow(immutables, {
         value: amountInWei,
-        data: ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`Deposit ${amount} ETH with hashlock: ${hashlock}`))
+        gasLimit: 500000 // Set a reasonable gas limit
       });
       
       console.log('✅ ETH transaction sent:', tx.hash);
@@ -317,9 +344,21 @@ export const WalletProvider = ({ children }) => {
       const receipt = await tx.wait(1); // Wait for 1 confirmation
       console.log('✅ ETH transaction confirmed:', receipt);
       
+      // Extract escrow address from the event logs
+      let escrowAddress = null;
+      if (receipt.events) {
+        const escrowCreatedEvent = receipt.events.find(e => e.event === 'EscrowCreated');
+        if (escrowCreatedEvent && escrowCreatedEvent.args) {
+          escrowAddress = escrowCreatedEvent.args.escrow;
+          console.log('✅ Escrow created at address:', escrowAddress);
+        }
+      }
+      
       return {
         success: true,
         transactionHash: tx.hash,
+        escrowAddress: escrowAddress,
+        receipt: receipt,
         message: 'ETH successfully deposited to HTLC contract'
       };
     } catch (error) {

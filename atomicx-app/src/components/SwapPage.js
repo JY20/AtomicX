@@ -253,8 +253,8 @@ function SwapPage() {
       // Generate hashlock and secret using Poseidon hash for Starknet compatibility
       const { secret, hashlock } = generateHashlock();
       
-      // Set timelock to 1 hour from now
-      const timelock = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+      // Set timelock to 10 seconds from now
+      const timelock = Math.floor(Date.now() / 1000) + 10; // 10 seconds
 
       console.log('🚀 Starting cross-chain atomic swap:', {
         fromAmount,
@@ -276,6 +276,12 @@ function SwapPage() {
       
       if (ethResult.success) {
         setTxHash(ethResult.transactionHash);
+        // Store the escrow address if available
+        if (ethResult.escrowAddress) {
+          setEscrowAddress(ethResult.escrowAddress);
+          console.log('✅ Escrow created at address:', ethResult.escrowAddress);
+          localStorage.setItem('atomic_swap_escrow', ethResult.escrowAddress);
+        }
         setMessage('Step 2/2: Creating corresponding HTLC on Starknet...');
         
         // Step 2: Create corresponding HTLC on Starknet
@@ -469,18 +475,24 @@ function SwapPage() {
       setSecret(generatedSecret);
       setHashlock(generatedHashlock);
       
-      // Set timelock (1 hour from now)
-      const timelock = Math.floor(Date.now() / 1000) + 3600;
+      // Set timelock (10 seconds from now)
+      const timelock = Math.floor(Date.now() / 1000) + 10;
       
       // Deposit to HTLC contract using the current user as taker for demo
       const result = await depositToHTLC(fromAmount, generatedHashlock, ethAccount, timelock);
       
-      // Extract escrow address from the transaction receipt
-      // The escrow address should be in the event logs
-      if (result.receipt && result.receipt.events) {
+      // Extract escrow address directly from the result
+      if (result.escrowAddress) {
+        setEscrowAddress(result.escrowAddress);
+        console.log('✅ Escrow created at address:', result.escrowAddress);
+        localStorage.setItem('atomic_swap_escrow', result.escrowAddress);
+      }
+      // Fallback: Extract from receipt if available
+      else if (result.receipt && result.receipt.events) {
         const escrowCreatedEvent = result.receipt.events.find(event => event.event === 'EscrowCreated');
-        if (escrowCreatedEvent) {
+        if (escrowCreatedEvent && escrowCreatedEvent.args) {
           setEscrowAddress(escrowCreatedEvent.args.escrow);
+          localStorage.setItem('atomic_swap_escrow', escrowCreatedEvent.args.escrow);
         }
       }
       
