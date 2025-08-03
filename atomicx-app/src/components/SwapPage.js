@@ -141,8 +141,12 @@ function SwapPage() {
 
   useEffect(() => {
     let timer;
-    if (currentStep === 3 && timeRemaining > 0) {
+    // Run the countdown in both step 3 and step 4
+    if ((currentStep === 3 || currentStep === 4) && timeRemaining > 0) {
       timer = setTimeout(() => setTimeRemaining(timeRemaining - 1), 1000);
+    } else if (timeRemaining <= 0 && (currentStep === 3 || currentStep === 4)) {
+      // When timer reaches zero, set a flag or log a message
+      console.log('Timer has reached zero - user can proceed');
     }
     return () => clearTimeout(timer);
   }, [currentStep, timeRemaining]);
@@ -282,6 +286,18 @@ function SwapPage() {
           setEscrowAddress(ethResult.escrowAddress);
           console.log('✅ Escrow created at address:', ethResult.escrowAddress);
           localStorage.setItem('atomic_swap_escrow', ethResult.escrowAddress);
+          
+          // Double check the localStorage was set correctly
+          const storedAddress = localStorage.getItem('atomic_swap_escrow');
+          console.log('Verified escrow address in localStorage:', storedAddress);
+          
+          if (!storedAddress) {
+            // Fallback: Try again with a slight delay
+            setTimeout(() => {
+              localStorage.setItem('atomic_swap_escrow', ethResult.escrowAddress);
+              console.log('Retry setting localStorage:', localStorage.getItem('atomic_swap_escrow'));
+            }, 100);
+          }
         }
         
         // Move to limit order creation step
@@ -532,6 +548,12 @@ function SwapPage() {
           localStorage.setItem('atomic_swap_escrow', escrowCreatedEvent.args.escrow);
         }
       }
+      
+      // Debugging: Log the escrow address and localStorage state
+      console.log('Escrow address after deposit:', {
+        escrowAddressState: result.escrowAddress || (result.receipt?.events?.find(e => e.event === 'EscrowCreated')?.args?.escrow),
+        localStorage: localStorage.getItem('atomic_swap_escrow')
+      });
       
       setMessage(`✅ ETH deposited successfully! Transaction: ${result.transactionHash}`);
       setDepositSuccess(true);
@@ -1050,7 +1072,7 @@ function SwapPage() {
             </div>
             <div className="detail-item">
               <span>Escrow Address:</span>
-              <span className="hash">{escrowAddress || 'Not available'}</span>
+              <span className="hash">{escrowAddress || localStorage.getItem('atomic_swap_escrow') || 'Not available'}</span>
             </div>
             <div className="detail-item">
               <span>Amount Locked:</span>
@@ -1071,13 +1093,27 @@ function SwapPage() {
             <span>HTLC Active - Waiting for Taker</span>
           </div>
           
-          <button 
-            className="claim-button" 
-            onClick={() => setCurrentStep(5)}
-            disabled={timeRemaining > 0}
-          >
-            {timeRemaining > 0 ? `Wait ${formatTime(timeRemaining)}` : 'Proceed to Claim'}
-          </button>
+          <div className="button-group">
+            <button 
+              className="claim-button" 
+              onClick={() => setCurrentStep(5)}
+              disabled={timeRemaining > 0}
+            >
+              {timeRemaining > 0 ? `Wait ${formatTime(timeRemaining)}` : 'Proceed to Claim'}
+            </button>
+            
+            {timeRemaining > 0 && (
+              <button 
+                className="skip-button" 
+                onClick={() => {
+                  setTimeRemaining(0);
+                  console.log('Timer skipped by user');
+                }}
+              >
+                Skip Timer
+              </button>
+            )}
+          </div>
         </>
       ) : (
         <div className="processing-section">
@@ -1088,6 +1124,17 @@ function SwapPage() {
       )}
     </div>
   );
+
+  // Effect to load escrow address from localStorage when moving to step 5
+  useEffect(() => {
+    if (currentStep === 5) {
+      const storedEscrowAddress = localStorage.getItem('atomic_swap_escrow');
+      if (storedEscrowAddress && !escrowAddress) {
+        console.log('Loading escrow address from localStorage:', storedEscrowAddress);
+        setEscrowAddress(storedEscrowAddress);
+      }
+    }
+  }, [currentStep, escrowAddress]);
 
   const renderStep5 = () => (
     <div className="swap-section">
@@ -1122,7 +1169,7 @@ function SwapPage() {
             </div>
             <div className="summary-item">
               <span>Escrow Address:</span>
-              <span className="hash">{escrowAddress || 'Not available'}</span>
+              <span className="hash">{escrowAddress || localStorage.getItem('atomic_swap_escrow') || 'Not available'}</span>
             </div>
             <div className="summary-item">
               <span>Secret Key:</span>
